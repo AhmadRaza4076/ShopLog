@@ -1,17 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ParsedTransaction } from './types';
-import { createAiClient } from './ai-client';
-
-function client() {
-  return createAiClient();
-}
-
-// Hackathon LiteLLM gateway only allows claude-sonnet-4-6 and claude-opus-4-6.
-const MODELS = {
-  fastText: 'claude-sonnet-4-6',
-  vision: 'claude-sonnet-4-6',
-  agent: 'claude-sonnet-4-6',
-};
+import {
+  MODEL_OPUS,
+  MODEL_SONNET,
+  createMessage,
+  textFromMessage,
+} from './ai-client';
 
 const PARSE_SYSTEM_PROMPT = `You convert a shopkeeper's informal note into a single structured ledger transaction.
 
@@ -42,39 +36,43 @@ function extractJson<T>(text: string): T {
   return JSON.parse(cleaned) as T;
 }
 
+async function parseStructuredTransaction(
+  params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>
+): Promise<ParsedTransaction> {
+  try {
+    const response = await createMessage(params, MODEL_SONNET);
+    return extractJson<ParsedTransaction>(textFromMessage(response));
+  } catch {
+    const response = await createMessage(params, MODEL_OPUS);
+    return extractJson<ParsedTransaction>(textFromMessage(response));
+  }
+}
+
 export async function parseEntryText(rawText: string): Promise<ParsedTransaction> {
-  const response = await client().messages.create({
-    model: MODELS.fastText,
+  return parseStructuredTransaction({
     max_tokens: 400,
     system: PARSE_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: rawText }],
   });
-
-  const textBlock = response.content.find((b) => b.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Claude did not return a text response for parsing.');
-  }
-  return extractJson<ParsedTransaction>(textBlock.text);
 }
 
 export async function parseReceiptImage(
   base64Data: string,
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
 ): Promise<ParsedTransaction> {
-  const response = await client().messages.create({
-    model: MODELS.vision,
+  const params = {
     max_tokens: 500,
     system: PARSE_SYSTEM_PROMPT,
     messages: [
       {
-        role: 'user',
+        role: 'user' as const,
         content: [
           {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64Data },
+            type: 'image' as const,
+            source: { type: 'base64' as const, media_type: mediaType, data: base64Data },
           },
           {
-            type: 'text',
+            type: 'text' as const,
             text:
               'This is a photo of a handwritten or printed receipt / notebook page from a small shop. ' +
               'Extract the single most prominent transaction it represents, following the JSON schema exactly.',
@@ -82,13 +80,18 @@ export async function parseReceiptImage(
         ],
       },
     ],
-  });
+  };
 
-  const textBlock = response.content.find((b) => b.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Claude did not return a text response for receipt parsing.');
+  try {
+    const response = await createMessage(params, MODEL_SONNET);
+    const parsed = extractJson<ParsedTransaction>(textFromMessage(response));
+    if (parsed.confidence !== 'low') return parsed;
+  } catch {
+    // fall through to Opus — hard task (messy handwriting / unclear photo)
   }
-  return extractJson<ParsedTransaction>(textBlock.text);
+
+  const response = await createMessage(params, MODEL_OPUS);
+  return extractJson<ParsedTransaction>(textFromMessage(response));
 }
 
 export async function draftReminder(
@@ -96,30 +99,28 @@ export async function draftReminder(
   amountOwed: number,
   daysSinceLastPayment: number | null
 ): Promise<string> {
-  const response = await client().messages.create({
-    model: MODELS.fastText,
-    max_tokens: 200,
-    system:
-      'You write a short, polite, respectful payment reminder message in plain English a shopkeeper ' +
-      'can copy and send over WhatsApp to a customer. Keep it under 40 words. No subject line, no signature block. ' +
-      'Be warm, not accusatory — this is an ongoing customer relationship, not a debt collection notice.',
-    messages: [
-      {
-        role: 'user',
-        content: `Customer name: ${customerName}. Amount owed: Rs. ${amountOwed}. ${
-          daysSinceLastPayment
-            ? `Days since their last payment: ${daysSinceLastPayment}.`
-            : 'No prior payment on record.'
-        }`,
-      },
-    ],
-  });
+  const response = await createMessage(
+    {
+      max_tokens: 200,
+      system:
+        'You write a short, polite, respectful payment reminder message in plain English a shopkeeper ' +
+        'can copy and send over WhatsApp to a customer. Keep it under 40 words. No subject line, no signature block. ' +
+        'Be warm, not accusatory — this is an ongoing customer relationship, not a debt collection notice.',
+      messages: [
+        {
+          role: 'user',
+          content: `Customer name: ${customerName}. Amount owed: Rs. ${amountOwed}. ${
+            daysSinceLastPayment
+              ? `Days since their last payment: ${daysSinceLastPayment}.`
+              : 'No prior payment on record.'
+          }`,
+        },
+      ],
+    },
+    MODEL_SONNET
+  );
 
-  const textBlock = response.content.find((b) => b.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Claude did not return a reminder message.');
-  }
-  return textBlock.text.trim();
+  return textFromMessage(response).trim();
 }
 
 // ---- Voice agent: Claude decides which app action a spoken command maps to ----
@@ -205,18 +206,7 @@ const VOICE_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
-export async function runVoiceCommand(transcript: string): Promise<VoiceAgentAction> {
-  const response = await client().messages.create({
-    model: MODELS.agent,
-    max_tokens: 400,
-    system:
-      "You control a small shop's bookkeeping app by mapping the shopkeeper's spoken command to exactly " +
-      "one tool call. Commands may mix English, Urdu, and Roman-Urdu. If the command is too ambiguous to " +
-      'act on safely, call no tool and explain why in plain text instead.',
-    tools: VOICE_TOOLS,
-    messages: [{ role: 'user', content: transcript }],
-  });
-
+function voiceActionFromResponse(response: Anthropic.Message): VoiceAgentAction {
   const toolUse = response.content.find((b) => b.type === 'tool_use');
   if (!toolUse || toolUse.type !== 'tool_use') {
     const textBlock = response.content.find((b) => b.type === 'text');
@@ -250,4 +240,27 @@ export async function runVoiceCommand(transcript: string): Promise<VoiceAgentAct
     default:
       return { tool: 'unclear', reason: `Unrecognized tool: ${toolUse.name}` };
   }
+}
+
+export async function runVoiceCommand(transcript: string): Promise<VoiceAgentAction> {
+  const params = {
+    max_tokens: 400,
+    system:
+      "You control a small shop's bookkeeping app by mapping the shopkeeper's spoken command to exactly " +
+      "one tool call. Commands may mix English, Urdu, and Roman-Urdu. If the command is too ambiguous to " +
+      'act on safely, call no tool and explain why in plain text instead.',
+    tools: VOICE_TOOLS,
+    messages: [{ role: 'user' as const, content: transcript }],
+  };
+
+  try {
+    const sonnetResponse = await createMessage(params, MODEL_SONNET);
+    const action = voiceActionFromResponse(sonnetResponse);
+    if (action.tool !== 'unclear') return action;
+  } catch {
+    // API error on Sonnet — try Opus below
+  }
+
+  const opusResponse = await createMessage(params, MODEL_OPUS);
+  return voiceActionFromResponse(opusResponse);
 }

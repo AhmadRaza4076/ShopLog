@@ -20,26 +20,32 @@ browser's built-in Web Speech API for voice input/output (Chrome or Edge).
 3. Copy your connection string (use the **pooled** connection string if
    given the option — it's the right one for serverless deployments).
 
-## 2. Get a Claude API key
+## 2. Environment variables (secrets)
 
-1. Go to [console.anthropic.com](https://console.anthropic.com) and create
-   an API key. New accounts get $5 in free credits, no card required.
-2. **Keep this key private.** Never commit it, paste it into chat, or share
-   it with anyone — treat it like a password.
+Copy the example file and fill in your values — **no spaces around `=`**:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Where to get it |
+|----------|-----------------|
+| `ANTHROPIC_API_KEY` | Hackathon organizers (LiteLLM key) |
+| `ANTHROPIC_BASE_URL` | `https://litellm.rapidscreen.io` |
+| `DATABASE_URL` | Neon dashboard → pooled connection string |
+
+**Security:** `.env.local` is gitignored and must never be committed or pasted into GitHub/Discord. For Vercel, add the same variables in the project **Environment Variables** settings — never hardcode them in source files. If your database password was ever exposed, reset it in the Neon dashboard and update `DATABASE_URL`.
 
 ## 3. Run locally
 
 ```bash
 npm install
-cp .env.example .env.local
-# now edit .env.local and paste in your real ANTHROPIC_API_KEY and DATABASE_URL
-
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). On first load, hit
-**"Load demo data"** on the dashboard to seed a realistic week of activity
-for three sample customers — useful for demos so the app isn't empty.
+`npm run dev` automatically frees ports 3000–3010 (kills stale dev servers) and always starts on **http://localhost:3000**. The terminal showing `✓ Ready` means the server is running — open that URL in your browser.
+
+**"Load demo data"** on the dashboard seeds a realistic week of activity for three sample customers.
 
 ## 4. Deploy to Vercel (free)
 
