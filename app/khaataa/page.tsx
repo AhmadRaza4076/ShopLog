@@ -112,17 +112,15 @@ function KhaataaContent() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Could not record payment.');
-      await load();
+      const refreshed = await fetch('/api/transactions');
+      const refreshedData = await refreshed.json();
+      const txs = refreshedData.transactions ?? [];
+      setTransactions(txs);
       window.dispatchEvent(new CustomEvent(VOICE_REFRESH_EVENT));
       setReminder(null);
-      if (selected) {
-        const refreshed = await fetch('/api/transactions');
-        const refreshedData = await refreshed.json();
-        const txs = refreshedData.transactions ?? [];
-        const balances = Object.values(computeCustomerBalances(txs));
-        const updated = balances.find((c) => c.customer_id === selected.customer_id);
-        if (updated) await selectCustomer(updated);
-      }
+      const balances = Object.values(computeCustomerBalances(txs));
+      const updated = balances.find((c) => c.customer_id === selected.customer_id);
+      if (updated) await selectCustomer(updated);
     } catch (e) {
       setPaymentError(e instanceof Error ? e.message : 'Could not record payment.');
     } finally {
