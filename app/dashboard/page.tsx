@@ -31,7 +31,7 @@ export default function DashboardPage() {
   }, [load]);
 
   const handleSeed = async () => {
-    if (transactions.length > 0) {
+    if (transactions && transactions.length > 0) {
       const ok = window.confirm(
         'This replaces all demo (system) transactions with a fresh set. Your own entries are kept.'
       );
