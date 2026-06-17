@@ -6,11 +6,17 @@ export function apiErrorResponse(error: unknown, fallback = 'Something went wron
     if (msg.includes('DATABASE_URL')) {
       return NextResponse.json({ error: msg }, { status: 503 });
     }
-    if (msg.includes('apiKey') || msg.includes('ANTHROPIC') || msg.includes('401')) {
+    if (msg.includes('authentication') || msg.includes('invalid x-api-key') || msg.includes('401')) {
       return NextResponse.json(
-        { error: 'AI service is not configured. Check ANTHROPIC_API_KEY in your environment.' },
+        {
+          error:
+            'AI authentication failed. Check ANTHROPIC_API_KEY and, if your hackathon provided one, ANTHROPIC_BASE_URL in .env.local — then restart npm run dev.',
+        },
         { status: 503 }
       );
+    }
+    if (msg.includes('ANTHROPIC_API_KEY is not set')) {
+      return NextResponse.json({ error: msg }, { status: 503 });
     }
     if (msg.includes('rate') || msg.includes('429')) {
       return NextResponse.json({ error: 'AI service is busy — try again in a moment.' }, { status: 429 });

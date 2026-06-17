@@ -16,12 +16,24 @@ const TYPE_LABEL: Record<Transaction['type'], string> = {
 
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/transactions');
-    const data = await res.json();
-    setTransactions(data.transactions ?? []);
+    try {
+      const res = await fetch('/api/transactions');
+      const data = await res.json();
+      if (!res.ok) {
+        setSetupError(data.error ?? 'Could not connect to the database.');
+        setTransactions([]);
+        return;
+      }
+      setSetupError(null);
+      setTransactions(data.transactions ?? []);
+    } catch {
+      setSetupError('Could not reach the server. Is npm run dev still running?');
+      setTransactions([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -56,6 +68,33 @@ export default function DashboardPage() {
       <p className="page-eyebrow">Today</p>
       <h1 className="page-title">Dashboard</h1>
 
+      {setupError && (
+        <div
+          style={{
+            marginBottom: 24,
+            padding: 16,
+            borderRadius: 6,
+            border: '1px solid var(--stamp-red)',
+            background: 'rgba(180, 40, 40, 0.06)',
+            fontSize: 14,
+            lineHeight: 1.6,
+          }}
+        >
+          <p style={{ fontWeight: 600, color: 'var(--stamp-red)', margin: '0 0 8px' }}>Setup required</p>
+          <p style={{ margin: 0 }}>{setupError}</p>
+          <ol style={{ margin: '12px 0 0', paddingLeft: 20 }}>
+            <li>Create a free database at <strong>neon.tech</strong></li>
+            <li>Run <code>scripts/schema.sql</code> in Neon&apos;s SQL editor</li>
+            <li>Copy your connection string into <code>.env.local</code> as <code>DATABASE_URL</code></li>
+            <li>Add your hackathon API key as <code>ANTHROPIC_API_KEY</code></li>
+            <li>If organizers gave a gateway URL, add it as <code>ANTHROPIC_BASE_URL</code></li>
+            <li>Stop the dev server (Ctrl+C) and run <code>npm run dev</code> again</li>
+          </ol>
+        </div>
+      )}
+
+      {!setupError && (
+        <>
       <div className="stat-grid">
         <div className="stat-card">
           <span className="stat-label">Today&rsquo;s sales</span>
@@ -127,6 +166,8 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+        </>
+      )}
         </>
       )}
     </div>

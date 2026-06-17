@@ -1,14 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ParsedTransaction } from './types';
+import { createAiClient } from './ai-client';
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+function client() {
+  return createAiClient();
+}
 
-// Model routing: cheap + fast for short text, the stronger vision model
-// only where handwriting/receipt accuracy actually benefits from it.
+// Hackathon LiteLLM gateway only allows claude-sonnet-4-6 and claude-opus-4-6.
 const MODELS = {
-  fastText: 'claude-haiku-4-5-20251001',
+  fastText: 'claude-sonnet-4-6',
   vision: 'claude-sonnet-4-6',
   agent: 'claude-sonnet-4-6',
 };
@@ -43,7 +43,7 @@ function extractJson<T>(text: string): T {
 }
 
 export async function parseEntryText(rawText: string): Promise<ParsedTransaction> {
-  const response = await client.messages.create({
+  const response = await client().messages.create({
     model: MODELS.fastText,
     max_tokens: 400,
     system: PARSE_SYSTEM_PROMPT,
@@ -61,7 +61,7 @@ export async function parseReceiptImage(
   base64Data: string,
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
 ): Promise<ParsedTransaction> {
-  const response = await client.messages.create({
+  const response = await client().messages.create({
     model: MODELS.vision,
     max_tokens: 500,
     system: PARSE_SYSTEM_PROMPT,
@@ -96,7 +96,7 @@ export async function draftReminder(
   amountOwed: number,
   daysSinceLastPayment: number | null
 ): Promise<string> {
-  const response = await client.messages.create({
+  const response = await client().messages.create({
     model: MODELS.fastText,
     max_tokens: 200,
     system:
@@ -206,7 +206,7 @@ const VOICE_TOOLS: Anthropic.Tool[] = [
 ];
 
 export async function runVoiceCommand(transcript: string): Promise<VoiceAgentAction> {
-  const response = await client.messages.create({
+  const response = await client().messages.create({
     model: MODELS.agent,
     max_tokens: 400,
     system:
