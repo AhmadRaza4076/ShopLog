@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/kill-dev-ports.mjs",
-    "dev": "next dev -p 3000",
+    "dev": "node scripts/dev.mjs",
+    "prebuild": "node scripts/ensure-not-dev.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

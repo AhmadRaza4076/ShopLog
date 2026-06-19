@@ -276,6 +276,14 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.stat-card-hero .stat-value {
+  font-size: 30px;
+}
+
+.stat-card-highlight {
+  border-left: 3px solid var(--brass);
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -397,6 +405,19 @@ button {
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+.voice-hint {
+  position: fixed;
+  bottom: 34px;
+  right: 100px;
+  max-width: 220px;
+  font-size: 12px;
+  color: var(--paper);
+  opacity: 0.72;
+  line-height: 1.45;
+  z-index: 49;
+  pointer-events: none;
+}
+
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
@@ -483,6 +504,302 @@ button {
   line-height: 1.5;
 }
 
+.customer-detail-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--rule-line);
+  border-radius: var(--radius-paper);
+  background: rgba(169, 128, 63, 0.06);
+}
+
+.customer-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.customer-detail-main strong {
+  font-size: 16px;
+}
+
+.customer-detail-phone {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.customer-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.customer-detail-balance {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ---------- Inventory table ---------- */
+
+.inv-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.inv-search-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  flex: 1;
+  min-width: 220px;
+}
+
+.inv-search-input {
+  flex: 1;
+  max-width: 420px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--rule-line);
+  border-radius: var(--radius-paper);
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--ink);
+}
+
+.inv-search-input:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
+.inv-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.inv-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule-line);
+  border-radius: var(--radius-paper);
+  margin-bottom: 20px;
+}
+
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.inv-table th,
+.inv-table td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--rule-line);
+}
+
+.inv-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.inv-table th.figure,
+.inv-table td.figure {
+  text-align: right;
+}
+
+.inv-table tbody tr {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.inv-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.inv-row-selected td {
+  background: rgba(169, 128, 63, 0.12);
+  box-shadow: inset 0 0 0 1px var(--brass);
+}
+
+.inv-sort-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+
+.inv-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.inv-status-ok {
+  color: var(--leaf-dark);
+  background: rgba(79, 107, 74, 0.12);
+}
+
+.inv-status-low {
+  color: var(--brass);
+  background: rgba(169, 128, 63, 0.15);
+}
+
+.inv-status-over {
+  color: var(--stamp-red);
+  background: rgba(177, 75, 51, 0.1);
+}
+
+.inv-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inv-btn-delete:not(:disabled):hover {
+  border-color: var(--stamp-red);
+  color: var(--stamp-red);
+}
+
+.inv-banner {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: var(--radius-paper);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.inv-banner-warn {
+  border: 1px solid var(--stamp-red);
+  background: rgba(180, 40, 40, 0.06);
+  color: var(--ink);
+}
+
+.inv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 31, 28, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.inv-modal {
+  background: var(--paper);
+  border-radius: var(--radius-paper);
+  box-shadow: var(--shadow-paper);
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.inv-modal-wide {
+  max-width: 720px;
+}
+
+.inv-modal-textarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: var(--font-body);
+}
+
+.inv-ledger-balance {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: -8px 0 16px;
+}
+
+.inv-modal-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin: 0 0 20px;
+  color: var(--ink);
+}
+
+.inv-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.inv-modal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.inv-modal-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.inv-modal-input {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--rule-line);
+  border-radius: var(--radius-paper);
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--ink);
+}
+
+.inv-modal-input:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
+.inv-modal-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--stamp-red);
+}
+
+.inv-modal-tip {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.inv-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 760px) {
@@ -520,5 +837,17 @@ button {
 
   .page-surface {
     padding: 22px 18px;
+  }
+
+  .voice-hint {
+    display: none;
+  }
+
+  .voice-fab {
+    width: 64px;
+    height: 64px;
+    bottom: 22px;
+    right: 20px;
+    font-size: 22px;
   }
 }

@@ -18,9 +18,12 @@ create table if not exists customers (
   shop_id     uuid not null references shops(id) on delete cascade,
   name        text not null,
   phone       text,
-  created_at  timestamptz not null default now(),
-  unique (shop_id, name)
+  notes       text,
+  created_at  timestamptz not null default now()
 );
+
+create unique index if not exists idx_customers_shop_name_lower
+  on customers (shop_id, lower(name));
 
 create table if not exists transactions (
   id            uuid primary key default gen_random_uuid(),
@@ -34,9 +37,24 @@ create table if not exists transactions (
   is_credit     boolean not null default false,
   source        text not null check (source in ('typed', 'voice', 'photo', 'system')),
   raw_input     text,
+  sale_id       uuid,
+  sale_notes    text,
   created_at    timestamptz not null default now()
 );
 
+create table if not exists shop_items (
+  id            uuid primary key default gen_random_uuid(),
+  shop_id       uuid not null references shops(id) on delete cascade,
+  item_name     text not null,
+  buy_price     numeric,
+  sell_price    numeric,
+  low_stock_at  numeric not null default 5,
+  updated_at    timestamptz not null default now(),
+  unique (shop_id, item_name)
+);
+
 create index if not exists idx_transactions_shop on transactions(shop_id, created_at desc);
+create index if not exists idx_transactions_sale on transactions(shop_id, sale_id);
 create index if not exists idx_transactions_customer on transactions(customer_id);
 create index if not exists idx_customers_shop on customers(shop_id);
+create index if not exists idx_shop_items_shop on shop_items(shop_id);

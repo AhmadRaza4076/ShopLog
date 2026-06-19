@@ -1,17 +1,20 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { VOICE_REFRESH_EVENT } from '@/components/VoiceControl';
-import type { ParsedTransaction, Transaction } from '@/lib/types';
+import type { EntryIntent, InventorySheetRow, ParsedTransaction, Transaction } from '@/lib/types';
 import { formatRupees } from '@/lib/computed';
+import { resizeAndEncode } from '@/lib/photo-utils';
 import type { SpeechRecognitionLike } from '@/lib/speech';
 
-type Mode = 'type' | 'voice' | 'photo';
+type InputMode = 'type' | 'voice' | 'photo';
 
 interface SavedResult {
   parsed: ParsedTransaction;
   transaction: Transaction;
+  stock_warning?: string | null;
 }
 
 const SOURCE_LABEL: Record<Transaction['source'], string> = {
@@ -21,12 +24,47 @@ const SOURCE_LABEL: Record<Transaction['source'], string> = {
   system: '⚙️ System',
 };
 
+const INTENTS: { id: EntryIntent; label: string }[] = [
+  { id: 'sale', label: 'Sale' },
+  { id: 'purchase', label: 'Stock in' },
+  { id: 'payment', label: 'Payment' },
+  { id: 'credit_given', label: 'Credit' },
+];
+
+const PLACEHOLDERS: Record<EntryIntent, string> = {
+  sale: 'e.g. sold 2 cement bags to Ali, 500 owed on credit',
+  purchase: 'e.g. bought 50 cement bags from supplier at 950 each',
+  payment: 'e.g. Ali paid 1000 rupees',
+  credit_given: 'e.g. gave 3 rice bags to Bilal on udhaar, 7500 total',
+};
+
+function outcomeMessage(parsed: ParsedTransaction): string {
+  if (parsed.type === 'purchase' && parsed.item_name && parsed.quantity != null) {
+    return `Inventory +${parsed.quantity} ${parsed.item_name}`;
+  }
+  if (parsed.type === 'sale' && parsed.item_name && parsed.quantity != null) {
+    return `Inventory −${parsed.quantity} ${parsed.item_name}`;
+  }
+  if ((parsed.is_credit || parsed.type === 'credit_given') && parsed.customer_name) {
+    return `Added to ${parsed.customer_name}'s khaataa`;
+  }
+  if (parsed.type === 'payment' && parsed.customer_name) {
+    return `Reduced ${parsed.customer_name}'s khaataa`;
+  }
+  return 'Saved to the ledger';
+}
+
 function dispatchRefresh() {
   window.dispatchEvent(new CustomEvent(VOICE_REFRESH_EVENT));
 }
 
-export default function EntryPage() {
-  const [mode, setMode] = useState<Mode>('type');
+function EntryContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isBulk = searchParams.get('mode') === 'bulk';
+
+  const [intent, setIntent] = useState<EntryIntent>('sale');
+  const [inputMode, setInputMode] = useState<InputMode>('type');
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -34,8 +72,17 @@ export default function EntryPage() {
   const [photoMediaType, setPhotoMediaType] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SavedResult | null>(null);
+  const [bulkPreview, setBulkPreview] = useState<InventorySheetRow[] | null>(null);
+  const [bulkImported, setBulkImported] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const intentParam = searchParams.get('intent');
+    if (intentParam === 'purchase' || intentParam === 'sale' || intentParam === 'payment' || intentParam === 'credit_given') {
+      setIntent(intentParam);
+    }
+  }, [searchParams]);
 
   const reset = () => {
     setText('');
@@ -43,6 +90,8 @@ export default function EntryPage() {
     setPhotoBase64(null);
     setPhotoMediaType('image/jpeg');
     setResult(null);
+    setBulkPreview(null);
+    setBulkImported(null);
     setError(null);
   };
 
@@ -53,7 +102,7 @@ export default function EntryPage() {
       return;
     }
     const recognition = new Ctor() as SpeechRecognitionLike;
-    recognition.lang = 'en-US';
+    recognition.lang = 'en-PK';
     recognition.onresult = (event) => {
       setText(event.results[0][0].transcript);
     };
@@ -63,7 +112,7 @@ export default function EntryPage() {
   };
 
   const handleSubmitText = async () => {
-    if (!text.trim()) return;
+      if (!text.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -71,7 +120,11 @@ export default function EntryPage() {
       const res = await fetch('/api/parse-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, source: mode === 'voice' ? 'voice' : 'typed' }),
+        body: JSON.stringify({
+          text,
+          source: inputMode === 'voice' ? 'voice' : 'typed',
+          intent,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Something went wrong.');
       const data = await res.json();
@@ -85,19 +138,18 @@ export default function EntryPage() {
     }
   };
 
-  const handlePhotoSelect = (file: File) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'] as const;
-    const mediaType = allowed.includes(file.type as typeof allowed[number])
-      ? (file.type as typeof allowed[number])
-      : 'image/jpeg';
-    setPhotoMediaType(mediaType);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPhotoPreview(dataUrl);
-      setPhotoBase64(dataUrl.split(',')[1]);
-    };
-    reader.readAsDataURL(file);
+  const handlePhotoSelect = async (file: File) => {
+    setError(null);
+    try {
+      const base64 = await resizeAndEncode(file);
+      setPhotoMediaType('image/jpeg');
+      setPhotoPreview(`data:image/jpeg;base64,${base64}`);
+      setPhotoBase64(base64);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not process photo.');
+      setPhotoPreview(null);
+      setPhotoBase64(null);
+    }
   };
 
   const handleSubmitPhoto = async () => {
@@ -109,7 +161,7 @@ export default function EntryPage() {
       const res = await fetch('/api/parse-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: photoBase64, mediaType: photoMediaType }),
+        body: JSON.stringify({ image: photoBase64, mediaType: photoMediaType, intent }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Something went wrong.');
       const data = await res.json();
@@ -124,119 +176,345 @@ export default function EntryPage() {
     }
   };
 
+  const handleBulkParse = async () => {
+    setLoading(true);
+    setError(null);
+    setBulkPreview(null);
+    setBulkImported(null);
+    try {
+      const payload = photoBase64
+        ? { image: photoBase64, mediaType: photoMediaType }
+        : { text };
+      if (!photoBase64 && !text.trim()) {
+        setError('Type a list or upload a photo first.');
+        setLoading(false);
+        return;
+      }
+      const res = await fetch('/api/parse-inventory-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Could not parse list.');
+      const data = await res.json();
+      if (!data.rows?.length) throw new Error('No items found — try clearer text or a sharper photo.');
+      setBulkPreview(data.rows);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkConfirm = async () => {
+    if (!bulkPreview?.length) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/import-inventory-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: bulkPreview,
+          source: photoBase64 ? 'photo' : 'typed',
+          raw_input: text || '[Bulk inventory photo]',
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Import failed.');
+      const data = await res.json();
+      setBulkImported(data.imported);
+      setBulkPreview(null);
+      setText('');
+      setPhotoPreview(null);
+      setPhotoBase64(null);
+      dispatchRefresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="page-surface">
       <p className="page-eyebrow">New entry</p>
-      <h1 className="page-title">Add to the ledger</h1>
+      <h1 className="page-title">{isBulk ? 'Import stock list' : 'Add entry'}</h1>
+      <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: -16, marginBottom: 20 }}>
+        {isBulk
+          ? 'Paste or photograph a full inventory list — all items import as stock purchases.'
+          : 'Record sales, stock-in, payments, or credit. Stock-in updates inventory automatically.'}
+      </p>
 
-      <div className="entry-bar">
-        <button
-          className={`entry-mode-btn ${mode === 'type' ? 'active' : ''}`}
-          onClick={() => { setMode('type'); reset(); }}
-        >
-          ⌨️ Type
-        </button>
-        <button
-          className={`entry-mode-btn ${mode === 'voice' ? 'active' : ''}`}
-          onClick={() => { setMode('voice'); reset(); }}
-        >
-          🎙️ Speak
-        </button>
-        <button
-          className={`entry-mode-btn ${mode === 'photo' ? 'active' : ''}`}
-          onClick={() => { setMode('photo'); reset(); }}
-        >
-          📷 Photo
-        </button>
-      </div>
-
-      {(mode === 'type' || mode === 'voice') && (
-        <div>
-          <textarea
-            className="entry-textarea"
-            placeholder={
-              mode === 'voice'
-                ? 'Press the mic, then speak — e.g. "sold 2 bags cement to Ali, 500 owed"'
-                : 'e.g. sold 2 bags cement to Ali, 500 owed'
-            }
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            {mode === 'voice' && (
-              <button className="btn-secondary" onClick={startVoiceDictation} disabled={listening}>
-                {listening ? 'Listening…' : '🎙️ Start speaking'}
-              </button>
-            )}
-            <button className="btn-primary" onClick={handleSubmitText} disabled={loading || !text.trim()}>
-              {loading ? 'Reading it…' : 'Add entry'}
+      {!isBulk && (
+        <div className="entry-bar" style={{ marginBottom: 16 }}>
+          {INTENTS.map((i) => (
+            <button
+              key={i.id}
+              className={`entry-mode-btn ${intent === i.id ? 'active' : ''}`}
+              onClick={() => { setIntent(i.id); reset(); }}
+            >
+              {i.label}
             </button>
-          </div>
+          ))}
         </div>
       )}
 
-      {mode === 'photo' && (
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handlePhotoSelect(file);
-            }}
-          />
-          {photoPreview ? (
+      {isBulk ? (
+        <>
+          <div className="entry-bar" style={{ marginBottom: 16 }}>
+            <button
+              className={`entry-mode-btn ${inputMode === 'type' ? 'active' : ''}`}
+              onClick={() => { setInputMode('type'); reset(); }}
+            >
+              ⌨️ Paste list
+            </button>
+            <button
+              className={`entry-mode-btn ${inputMode === 'photo' ? 'active' : ''}`}
+              onClick={() => { setInputMode('photo'); reset(); }}
+            >
+              📷 Photo of list
+            </button>
+          </div>
+
+          {inputMode === 'type' && (
+            <textarea
+              className="entry-textarea"
+              placeholder={'Cement (bag), 120, 950\nRice (50kg bag), 10, 7200\n...'}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              style={{ minHeight: 160 }}
+            />
+          )}
+
+          {inputMode === 'photo' && (
             <div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoPreview}
-                alt="Receipt preview"
-                style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 6, border: '1px solid var(--rule-line)' }}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePhotoSelect(file);
+                }}
               />
-              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              {photoPreview ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photoPreview}
+                    alt="Inventory list preview"
+                    style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 6, border: '1px solid var(--rule-line)' }}
+                  />
+                  <button className="btn-secondary" style={{ marginTop: 10 }} onClick={() => fileInputRef.current?.click()}>
+                    Retake
+                  </button>
+                </>
+              ) : (
                 <button className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
-                  Retake
+                  📷 Take or upload photo
                 </button>
-                <button className="btn-primary" onClick={handleSubmitPhoto} disabled={loading}>
-                  {loading ? 'Reading it…' : 'Parse receipt'}
+              )}
+            </div>
+          )}
+
+          {!bulkPreview && (
+            <button
+              className="btn-primary"
+              style={{ marginTop: 12 }}
+              onClick={handleBulkParse}
+              disabled={loading || (inputMode === 'type' && !text.trim()) || (inputMode === 'photo' && !photoBase64)}
+            >
+              {loading ? 'Reading list…' : 'Preview items'}
+            </button>
+          )}
+
+          {bulkPreview && (
+            <div style={{ marginTop: 16 }}>
+              <p className="page-eyebrow">Will import {bulkPreview.length} items</p>
+              <div className="ledger-rows">
+                {bulkPreview.map((row, idx) => (
+                  <div className="ledger-row" key={`${row.item_name}-${idx}`}>
+                    <div className="ledger-row-main">
+                      <span className="ledger-row-title">{row.item_name}</span>
+                      <span className="ledger-row-sub">
+                        Qty {row.quantity}
+                        {row.unit_price != null ? ` · ${formatRupees(row.unit_price)} each` : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <button className="btn-primary" onClick={handleBulkConfirm} disabled={loading}>
+                  {loading ? 'Importing…' : 'Confirm import'}
+                </button>
+                <button className="btn-secondary" onClick={() => setBulkPreview(null)} disabled={loading}>
+                  Cancel
                 </button>
               </div>
             </div>
-          ) : (
-            <button className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
-              📷 Take or upload a photo
-            </button>
           )}
-        </div>
+
+          {bulkImported != null && (
+            <div className="stat-card" style={{ marginTop: 20 }}>
+              <span className="stat-label">Stock imported</span>
+              <p style={{ margin: '8px 0 0', color: 'var(--paper)', fontSize: 14 }}>
+                {bulkImported} purchase{bulkImported === 1 ? '' : 's'} recorded — inventory updated.
+              </p>
+              <Link href="/inventory" style={{ display: 'inline-block', marginTop: 12, fontSize: 13, color: 'var(--brass)' }}>
+                View inventory →
+              </Link>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="entry-bar">
+            <button
+              className={`entry-mode-btn ${inputMode === 'type' ? 'active' : ''}`}
+              onClick={() => { setInputMode('type'); reset(); }}
+            >
+              ⌨️ Type
+            </button>
+            <button
+              className={`entry-mode-btn ${inputMode === 'voice' ? 'active' : ''}`}
+              onClick={() => { setInputMode('voice'); reset(); }}
+            >
+              🎙️ Speak
+            </button>
+            <button
+              className={`entry-mode-btn ${inputMode === 'photo' ? 'active' : ''}`}
+              onClick={() => { setInputMode('photo'); reset(); }}
+            >
+              📷 Photo
+            </button>
+          </div>
+
+          {(inputMode === 'type' || inputMode === 'voice') && (
+            <div>
+              <textarea
+                className="entry-textarea"
+                placeholder={PLACEHOLDERS[intent]}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                {inputMode === 'voice' && (
+                  <button className="btn-secondary" onClick={startVoiceDictation} disabled={listening}>
+                    {listening ? 'Listening…' : '🎙️ Start speaking'}
+                  </button>
+                )}
+                <button className="btn-primary" onClick={handleSubmitText} disabled={loading || !text.trim()}>
+                  {loading ? 'Reading it…' : 'Add entry'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {inputMode === 'photo' && (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePhotoSelect(file);
+                }}
+              />
+              {photoPreview ? (
+                <div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photoPreview}
+                    alt="Receipt preview"
+                    style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 6, border: '1px solid var(--rule-line)' }}
+                  />
+                  <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                    <button className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                      Retake
+                    </button>
+                    <button className="btn-primary" onClick={handleSubmitPhoto} disabled={loading}>
+                      {loading ? 'Reading it…' : 'Parse receipt'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                  📷 Take or upload a photo
+                </button>
+              )}
+            </div>
+          )}
+
+          {result && (
+            <div className="stat-card" style={{ marginTop: 20 }}>
+              <span className="stat-label">
+                {outcomeMessage(result.parsed)} · {SOURCE_LABEL[result.transaction.source]}
+              </span>
+              <p style={{ margin: '8px 0 0', color: 'var(--paper)', fontSize: 14, lineHeight: 1.6 }}>
+                {result.parsed.type === 'sale' ? 'Sale' : result.parsed.type === 'purchase' ? 'Stock in' : result.parsed.type === 'payment' ? 'Payment' : 'Credit given'}
+                {result.parsed.item_name ? ` — ${result.parsed.item_name}` : ''}
+                {result.parsed.customer_name ? ` · ${result.parsed.customer_name}` : ''}
+                {' · '}
+                <span className="figure">{formatRupees(result.parsed.total_amount)}</span>
+                {result.parsed.confidence !== 'high' && (
+                  <span style={{ color: 'var(--brass)' }}> (confidence: {result.parsed.confidence})</span>
+                )}
+              </p>
+              {result.stock_warning && (
+                <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--brass)', lineHeight: 1.5 }}>
+                  {result.stock_warning}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+                <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--brass)' }}>
+                  Dashboard →
+                </Link>
+                {result.parsed.type === 'purchase' && (
+                  <Link href="/inventory" style={{ fontSize: 13, color: 'var(--brass)' }}>
+                    Inventory →
+                  </Link>
+                )}
+                {(result.parsed.is_credit || result.parsed.type === 'payment') && result.parsed.customer_name && (
+                  <Link href={`/khaataa?customer=${encodeURIComponent(result.parsed.customer_name)}`} style={{ fontSize: 13, color: 'var(--brass)' }}>
+                    Khaataa →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {error && (
         <p style={{ color: 'var(--stamp-red)', fontSize: 13.5, marginTop: 16 }}>{error}</p>
       )}
 
-      {result && (
-        <div className="stat-card" style={{ marginTop: 20 }}>
-          <span className="stat-label">
-            Saved to the ledger · {SOURCE_LABEL[result.transaction.source]}
-          </span>
-          <p style={{ margin: '8px 0 0', color: 'var(--paper)', fontSize: 14, lineHeight: 1.6 }}>
-            {result.parsed.type === 'sale' ? 'Sale' : result.parsed.type === 'purchase' ? 'Purchase' : result.parsed.type === 'payment' ? 'Payment' : 'Credit given'}
-            {result.parsed.item_name ? ` — ${result.parsed.item_name}` : ''}
-            {result.parsed.customer_name ? ` · ${result.parsed.customer_name}` : ''}
-            {' · '}
-            <span className="figure">{formatRupees(result.parsed.total_amount)}</span>
-            {result.parsed.confidence !== 'high' && (
-              <span style={{ color: 'var(--brass)' }}> (confidence: {result.parsed.confidence} — worth double-checking)</span>
-            )}
-          </p>
-          <Link href="/dashboard" style={{ display: 'inline-block', marginTop: 12, fontSize: 13, color: 'var(--brass)' }}>
-            View on dashboard →
-          </Link>
-        </div>
+      {!isBulk && (
+        <p style={{ marginTop: 24, fontSize: 13, color: 'var(--ink-soft)' }}>
+          Importing many items at once?{' '}
+          <button
+            type="button"
+            onClick={() => router.push('/entry?mode=bulk')}
+            style={{ background: 'none', border: 'none', color: 'var(--brass)', cursor: 'pointer', padding: 0, font: 'inherit' }}
+          >
+            Import stock list →
+          </button>
+        </p>
       )}
     </div>
+  );
+}
+
+export default function EntryPage() {
+  return (
+    <Suspense fallback={<div className="page-surface"><p className="empty-state">Loading…</p></div>}>
+      <EntryContent />
+    </Suspense>
   );
 }

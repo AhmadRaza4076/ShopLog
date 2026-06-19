@@ -1,5 +1,11 @@
-import { NextResponse } from 'next/server';
-import { DEMO_SHOP_ID, ensureDemoShop, getOrCreateCustomer, sql } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  DEMO_SHOP_ID,
+  backfillShopItemsFromTransactions,
+  ensureDemoShop,
+  getOrCreateCustomer,
+  sql,
+} from '@/lib/db';
 import { apiErrorResponse } from '@/lib/api-errors';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +21,11 @@ interface SeedTxn {
   daysAgo: number;
 }
 
+const CUSTOMER_PHONES: Record<string, string> = {
+  'Ali Raza': '03001234567',
+  'Sana Tariq': '03009876543',
+};
+
 const SEED_DATA: SeedTxn[] = [
   { type: 'purchase', item_name: 'Cement (bag)', quantity: 50, unit_price: 950, total_amount: 47500, customer_name: null, is_credit: false, daysAgo: 21 },
   { type: 'purchase', item_name: 'Rice (50kg bag)', quantity: 10, unit_price: 7200, total_amount: 72000, customer_name: null, is_credit: false, daysAgo: 18 },
@@ -29,10 +40,23 @@ const SEED_DATA: SeedTxn[] = [
   { type: 'sale', item_name: 'Cement (bag)', quantity: 4, unit_price: 1000, total_amount: 4000, customer_name: 'Sana Tariq', is_credit: true, daysAgo: 1 },
 ];
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     await ensureDemoShop();
+    const body = (await req.json().catch(() => ({}))) as { replace?: boolean };
+    const replace = body.replace === true;
+
     const db = sql();
+
+    const existing = await db`
+      select count(*)::int as n from transactions
+      where shop_id = ${DEMO_SHOP_ID} and source = 'system'
+    `;
+    const systemCount = Number((existing as { n: number }[])[0]?.n ?? 0);
+
+    if (systemCount > 0 && !replace) {
+      return NextResponse.json({ skipped: true, reason: 'Already seeded' });
+    }
 
     await db`
       delete from transactions
@@ -50,7 +74,11 @@ export async function POST() {
     for (const txn of SEED_DATA) {
       let customerId: string | null = null;
       if (txn.customer_name) {
-        const customer = await getOrCreateCustomer(DEMO_SHOP_ID, txn.customer_name);
+        const customer = await getOrCreateCustomer(
+          DEMO_SHOP_ID,
+          txn.customer_name,
+          CUSTOMER_PHONES[txn.customer_name] ?? null
+        );
         customerId = customer.id;
       }
 
@@ -64,7 +92,9 @@ export async function POST() {
       `;
     }
 
-    return NextResponse.json({ seeded: SEED_DATA.length, replaced: true });
+    await backfillShopItemsFromTransactions(DEMO_SHOP_ID);
+
+    return NextResponse.json({ seeded: SEED_DATA.length, replaced: systemCount > 0 });
   } catch (error) {
     return apiErrorResponse(error, 'Could not seed demo data.');
   }

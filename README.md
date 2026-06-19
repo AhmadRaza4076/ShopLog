@@ -51,9 +51,22 @@ npm run dev
 
 1. Push this project to a GitHub repo.
 2. Import it at [vercel.com/new](https://vercel.com/new).
-3. In the project's Environment Variables settings, add `ANTHROPIC_API_KEY`
-   and `DATABASE_URL` with your real values.
+3. In the project's Environment Variables settings, add `ANTHROPIC_API_KEY`,
+   `ANTHROPIC_BASE_URL`, and `DATABASE_URL` with your real values.
 4. Deploy. You'll get a public `yourproject.vercel.app` URL to submit.
+
+## Key features
+
+- **Today's profit** — dashboard shows gross margin from today's sales using buy/sell prices already in `shop_items` and transaction rows (`lib/computed.ts` → `computeProfitSummary`). Ask by voice: *"aaj kitna munafa hua?"*
+- **Credit readiness score** — per-customer 0–100 score with explainable factors on the Khaataa screen (`lib/scoring.ts`). Ask by voice: *"Ali ka credit score kya hai?"*
+- **WhatsApp reminders** — AI drafts a polite Urdu/English reminder; copy or tap **Send on WhatsApp** to open `wa.me` with the customer's phone (`lib/whatsapp.ts`).
+
+## Demo script (3 minutes)
+
+1. **Dashboard** — Load demo data → point at *Today's profit* and *Total owed*
+2. **Entry** — Type or say a credit sale → inventory and khaataa update
+3. **Khaataa** — Select Ali Raza → credit score + factors → Draft reminder → **Send on WhatsApp**
+4. **Voice** — *"aaj kitna munafa hua?"* and *"Ali kitna baqi hai?"*
 
 ## How it's organized
 

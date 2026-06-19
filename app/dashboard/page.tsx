@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { StampBadge } from '@/components/StampBadge';
-import { VOICE_REFRESH_EVENT } from '@/components/VoiceControl';
 import { summarizeDashboard, formatRupees, timeAgo } from '@/lib/computed';
+import { useTransactions } from '@/lib/hooks/use-transactions';
 import type { Transaction } from '@/lib/types';
 
 const TYPE_LABEL: Record<Transaction['type'], string> = {
@@ -15,42 +15,24 @@ const TYPE_LABEL: Record<Transaction['type'], string> = {
 };
 
 export default function DashboardPage() {
-  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
-  const [setupError, setSetupError] = useState<string | null>(null);
+  const { transactions, error: setupError, reload: load } = useTransactions();
   const [seeding, setSeeding] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch('/api/transactions');
-      const data = await res.json();
-      if (!res.ok) {
-        setSetupError(data.error ?? 'Could not connect to the database.');
-        setTransactions([]);
-        return;
-      }
-      setSetupError(null);
-      setTransactions(data.transactions ?? []);
-    } catch {
-      setSetupError('Could not reach the server. Is npm run dev still running?');
-      setTransactions([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-    window.addEventListener(VOICE_REFRESH_EVENT, load);
-    return () => window.removeEventListener(VOICE_REFRESH_EVENT, load);
-  }, [load]);
-
   const handleSeed = async () => {
+    let replace = false;
     if (transactions && transactions.length > 0) {
       const ok = window.confirm(
         'This replaces all demo (system) transactions with a fresh set. Your own entries are kept.'
       );
       if (!ok) return;
+      replace = true;
     }
     setSeeding(true);
-    await fetch('/api/seed', { method: 'POST' });
+    await fetch('/api/seed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ replace }),
+    });
     await load();
     setSeeding(false);
   };
@@ -96,6 +78,19 @@ export default function DashboardPage() {
       {!setupError && (
         <>
       <div className="stat-grid">
+        <div className="stat-card stat-card-highlight stat-card-hero">
+          <span className="stat-label">Today&rsquo;s profit</span>
+          <span className="stat-value">{formatRupees(summary.todayGrossProfit)}</span>
+          {summary.todaySalesMissingCost > 0 && (
+            <span style={{ fontSize: 11.5, color: 'var(--brass)', lineHeight: 1.4 }}>
+              {summary.todaySalesMissingCost} sale{summary.todaySalesMissingCost === 1 ? '' : 's'} missing buy price — profit is partial
+            </span>
+          )}
+        </div>
+        <div className="stat-card stat-card-hero">
+          <span className="stat-label">Total owed to you</span>
+          <span className="stat-value">{formatRupees(summary.totalOwedAcrossAllCustomers)}</span>
+        </div>
         <div className="stat-card">
           <span className="stat-label">Today&rsquo;s sales</span>
           <span className="stat-value">{formatRupees(summary.todaySalesTotal)}</span>
@@ -103,10 +98,6 @@ export default function DashboardPage() {
         <div className="stat-card">
           <span className="stat-label">Entries today</span>
           <span className="stat-value">{summary.todayTransactionCount}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Total owed to you</span>
-          <span className="stat-value">{formatRupees(summary.totalOwedAcrossAllCustomers)}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Items tracked</span>
@@ -131,7 +122,7 @@ export default function DashboardPage() {
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 12 }}>
             <p className="page-eyebrow" style={{ margin: 0 }}>Recent activity</p>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <Link href="/history" style={{ fontSize: 13, color: 'var(--brass)' }}>
                 View full history →
               </Link>

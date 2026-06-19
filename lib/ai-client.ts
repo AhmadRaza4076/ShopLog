@@ -13,7 +13,17 @@ export function aiBaseUrl(): string | undefined {
 
 /** Hackathon LiteLLM gateway — Sonnet for speed/quota, Opus when Sonnet isn't enough. */
 export const MODEL_SONNET = 'claude-sonnet-4-6';
-export const MODEL_OPUS = 'claude-opus-4-6';
+/** Gateway uses a dot (4.6), not a hyphen — wrong ID returns 403 key_model_access_denied. */
+export const MODEL_OPUS = 'claude-opus-4.6';
+
+export function isModelAccessError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes('key_model_access_denied') ||
+    msg.includes('key not allowed to access model') ||
+    (msg.includes('403') && msg.includes('model'))
+  );
+}
 
 export function createAiClient(): Anthropic {
   const apiKey = aiApiKey();

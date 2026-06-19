@@ -1,117 +1,157 @@
-import type { CreditScoreResult, Transaction } from './types';
+import { countsTowardCustomerBalance, daysSinceLastPayment } from './computed';
+import type { Transaction } from './types';
 
-/**
- * Computes a 0–100 credit-readiness score from a customer's transaction
- * history. This is intentionally a transparent, explainable rule-based
- * score rather than a black-box model — a shopkeeper (or a loan officer)
- * should be able to see exactly why a customer scored the way they did.
- */
-export function computeCreditScore(
-  customerId: string,
-  customerName: string,
-  transactions: Transaction[]
-): CreditScoreResult {
-  const relevant = transactions.filter((t) => t.customer_id === customerId);
+export interface CreditScoreFactor {
+  label: string;
+  detail: string;
+  impact: 'positive' | 'neutral' | 'negative';
+}
 
-  if (relevant.length === 0) {
-    return {
-      customer_id: customerId,
-      customer_name: customerName,
-      score: 0,
-      band: 'Insufficient history',
-      factors: [
-        {
-          label: 'No transaction history',
-          detail: 'This customer has no recorded sales, credit, or payments yet.',
-          weight: 'neutral',
-        },
-      ],
-    };
+export interface CreditScore {
+  score: number;
+  tier: 'Good' | 'Fair' | 'At risk';
+  factors: CreditScoreFactor[];
+}
+
+function tierFromScore(score: number): CreditScore['tier'] {
+  if (score >= 70) return 'Good';
+  if (score >= 40) return 'Fair';
+  return 'At risk';
+}
+
+export function computeCreditScore(customerId: string, transactions: Transaction[]): CreditScore {
+  const customerTxns = transactions.filter((t) => t.customer_id === customerId);
+
+  let totalCredit = 0;
+  let totalPayments = 0;
+  let paymentCount = 0;
+  let currentBalance = 0;
+
+  for (const t of customerTxns) {
+    if (t.type === 'payment') {
+      totalPayments += Number(t.total_amount);
+      paymentCount += 1;
+      currentBalance -= Number(t.total_amount);
+    } else if (countsTowardCustomerBalance(t)) {
+      totalCredit += Number(t.total_amount);
+      currentBalance += Number(t.total_amount);
+    }
   }
 
-  const creditGiven = relevant.filter((t) => t.is_credit && t.type !== 'payment');
-  const payments = relevant.filter((t) => t.type === 'payment');
+  currentBalance = Math.max(0, currentBalance);
+  const daysSince = daysSinceLastPayment(customerId, transactions);
 
-  const totalCreditAmount = creditGiven.reduce((sum, t) => sum + Number(t.total_amount), 0);
-  const totalPaidAmount = payments.reduce((sum, t) => sum + Number(t.total_amount), 0);
-  const currentlyOwed = Math.max(totalCreditAmount - totalPaidAmount, 0);
+  const factors: CreditScoreFactor[] = [];
+  let score = 0;
 
-  const factors: CreditScoreResult['factors'] = [];
-  let score = 50; // start neutral, adjust from real behavior
-
-  // Factor 1: repayment ratio — how much of what they've owed has been paid back
-  const repaymentRatio = totalCreditAmount > 0 ? totalPaidAmount / totalCreditAmount : 1;
-  if (totalCreditAmount > 0) {
-    const points = Math.round(repaymentRatio * 30) - 15; // -15 to +15
-    score += points;
+  // Payment recency (~30 pts)
+  if (daysSince == null) {
+    score += 5;
     factors.push({
-      label: 'Repayment ratio',
-      detail: `Has repaid ${Math.round(repaymentRatio * 100)}% of all credit ever extended (Rs. ${totalPaidAmount.toLocaleString()} of Rs. ${totalCreditAmount.toLocaleString()}).`,
-      weight: points >= 0 ? 'positive' : 'negative',
+      label: 'Payment recency',
+      detail: 'No payment recorded yet on this khaataa.',
+      impact: 'negative',
+    });
+  } else if (daysSince <= 7) {
+    score += 30;
+    factors.push({
+      label: 'Payment recency',
+      detail: `Last payment ${daysSince} day${daysSince === 1 ? '' : 's'} ago — very recent.`,
+      impact: 'positive',
+    });
+  } else if (daysSince <= 30) {
+    score += 18;
+    factors.push({
+      label: 'Payment recency',
+      detail: `Last payment ${daysSince} days ago — within a month.`,
+      impact: 'neutral',
+    });
+  } else {
+    score += 5;
+    factors.push({
+      label: 'Payment recency',
+      detail: `Last payment ${daysSince} days ago — overdue pattern.`,
+      impact: 'negative',
     });
   }
 
-  // Factor 2: current overdue ratio — how much is outstanding right now relative to history
-  const overdueRatio = totalCreditAmount > 0 ? currentlyOwed / totalCreditAmount : 0;
-  if (totalCreditAmount > 0) {
-    const points = -Math.round(overdueRatio * 20); // 0 to -20
-    score += points;
+  // Pay-down ratio (~25 pts)
+  if (totalCredit <= 0) {
+    score += 12;
     factors.push({
-      label: 'Current outstanding balance',
+      label: 'Pay-down history',
+      detail: 'No credit sales on record yet.',
+      impact: 'neutral',
+    });
+  } else {
+    const ratio = Math.min(1, totalPayments / totalCredit);
+    score += Math.round(ratio * 25);
+    const pct = Math.round(ratio * 100);
+    factors.push({
+      label: 'Pay-down history',
+      detail: `Paid back ${pct}% of lifetime credit (Rs. ${Math.round(totalPayments)} of Rs. ${Math.round(totalCredit)}).`,
+      impact: ratio >= 0.6 ? 'positive' : ratio >= 0.3 ? 'neutral' : 'negative',
+    });
+  }
+
+  // Current balance vs lifetime credit (~25 pts)
+  if (totalCredit <= 0 && currentBalance <= 0) {
+    score += 20;
+    factors.push({
+      label: 'Outstanding balance',
+      detail: 'No outstanding udhaar right now.',
+      impact: 'positive',
+    });
+  } else if (totalCredit > 0) {
+    const owedRatio = currentBalance / totalCredit;
+    const balancePts = Math.round((1 - Math.min(1, owedRatio)) * 25);
+    score += balancePts;
+    factors.push({
+      label: 'Outstanding balance',
       detail:
-        currentlyOwed > 0
-          ? `Currently owes Rs. ${currentlyOwed.toLocaleString()}, which is ${Math.round(overdueRatio * 100)}% of all credit ever given.`
-          : 'Currently owes nothing — fully settled.',
-      weight: points < 0 ? 'negative' : 'positive',
+        currentBalance > 0
+          ? `Rs. ${Math.round(currentBalance)} still owed (${Math.round(owedRatio * 100)}% of lifetime credit).`
+          : 'Fully cleared — nothing outstanding.',
+      impact: owedRatio <= 0.25 ? 'positive' : owedRatio <= 0.6 ? 'neutral' : 'negative',
     });
-  }
-
-  // Factor 3: payment frequency — has this customer paid more than once?
-  if (payments.length >= 2) {
+  } else {
     score += 10;
     factors.push({
-      label: 'Repeat payments',
-      detail: `Has made ${payments.length} separate payments — a pattern, not a one-off.`,
-      weight: 'positive',
-    });
-  } else if (payments.length === 1) {
-    factors.push({
-      label: 'Limited payment history',
-      detail: 'Only one payment on record so far.',
-      weight: 'neutral',
-    });
-  } else if (totalCreditAmount > 0) {
-    score -= 10;
-    factors.push({
-      label: 'No payments yet',
-      detail: 'Has received credit but made no payments toward it yet.',
-      weight: 'negative',
+      label: 'Outstanding balance',
+      detail: `Rs. ${Math.round(currentBalance)} currently owed.`,
+      impact: currentBalance > 0 ? 'negative' : 'neutral',
     });
   }
 
-  // Factor 4: relationship length — number of total transactions as a proxy for tenure
-  if (relevant.length >= 10) {
-    score += 10;
+  // Relationship depth (~20 pts)
+  if (paymentCount >= 3) {
+    score += 20;
     factors.push({
-      label: 'Long-standing customer',
-      detail: `${relevant.length} recorded transactions with this shop.`,
-      weight: 'positive',
+      label: 'Relationship depth',
+      detail: `${paymentCount} payments on record — established customer.`,
+      impact: 'positive',
     });
-  } else if (relevant.length < 3) {
+  } else if (paymentCount >= 1) {
+    score += 12;
     factors.push({
-      label: 'New relationship',
-      detail: `Only ${relevant.length} recorded transaction(s) — too early to be fully confident.`,
-      weight: 'neutral',
+      label: 'Relationship depth',
+      detail: `${paymentCount} payment${paymentCount === 1 ? '' : 's'} on record — building history.`,
+      impact: 'neutral',
+    });
+  } else {
+    score += 8;
+    factors.push({
+      label: 'Relationship depth',
+      detail: 'New or infrequent payer — limited payment history.',
+      impact: 'neutral',
     });
   }
 
-  score = Math.max(0, Math.min(100, score));
+  const finalScore = Math.max(0, Math.min(100, score));
 
-  let band: CreditScoreResult['band'];
-  if (relevant.length < 3) band = 'Insufficient history';
-  else if (score >= 70) band = 'Strong';
-  else if (score >= 45) band = 'Fair';
-  else band = 'Risky';
-
-  return { customer_id: customerId, customer_name: customerName, score, band, factors };
+  return {
+    score: finalScore,
+    tier: tierFromScore(finalScore),
+    factors,
+  };
 }
