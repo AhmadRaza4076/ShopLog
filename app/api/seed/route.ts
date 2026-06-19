@@ -21,27 +21,17 @@ interface SeedTxn {
   daysAgo: number;
 }
 
-const CUSTOMER_PHONES: Record<string, string> = {
-  'Ali Raza': '03001234567',
-  'Sana Tariq': '03009876543',
-};
+/** Populate when custom demo data is provided. */
+const CUSTOMER_PHONES: Record<string, string> = {};
 
-const SEED_DATA: SeedTxn[] = [
-  { type: 'purchase', item_name: 'Cement (bag)', quantity: 50, unit_price: 950, total_amount: 47500, customer_name: null, is_credit: false, daysAgo: 21 },
-  { type: 'purchase', item_name: 'Rice (50kg bag)', quantity: 10, unit_price: 7200, total_amount: 72000, customer_name: null, is_credit: false, daysAgo: 18 },
-  { type: 'sale', item_name: 'Cement (bag)', quantity: 5, unit_price: 1000, total_amount: 5000, customer_name: 'Ali Raza', is_credit: true, daysAgo: 15 },
-  { type: 'sale', item_name: 'Rice (50kg bag)', quantity: 1, unit_price: 7500, total_amount: 7500, customer_name: 'Bilal Hussain', is_credit: false, daysAgo: 14 },
-  { type: 'sale', item_name: 'Cement (bag)', quantity: 3, unit_price: 1000, total_amount: 3000, customer_name: 'Ali Raza', is_credit: true, daysAgo: 12 },
-  { type: 'payment', item_name: null, quantity: null, unit_price: null, total_amount: 4000, customer_name: 'Ali Raza', is_credit: false, daysAgo: 10 },
-  { type: 'sale', item_name: 'Rice (50kg bag)', quantity: 2, unit_price: 7500, total_amount: 15000, customer_name: 'Sana Tariq', is_credit: true, daysAgo: 9 },
-  { type: 'sale', item_name: 'Cement (bag)', quantity: 8, unit_price: 1000, total_amount: 8000, customer_name: 'Bilal Hussain', is_credit: false, daysAgo: 7 },
-  { type: 'payment', item_name: null, quantity: null, unit_price: null, total_amount: 7000, customer_name: 'Sana Tariq', is_credit: false, daysAgo: 5 },
-  { type: 'sale', item_name: 'Rice (50kg bag)', quantity: 1, unit_price: 7500, total_amount: 7500, customer_name: 'Ali Raza', is_credit: true, daysAgo: 3 },
-  { type: 'sale', item_name: 'Cement (bag)', quantity: 4, unit_price: 1000, total_amount: 4000, customer_name: 'Sana Tariq', is_credit: true, daysAgo: 1 },
-];
+const SEED_DATA: SeedTxn[] = [];
 
 export async function POST(req: NextRequest) {
   try {
+    if (SEED_DATA.length === 0) {
+      return NextResponse.json({ skipped: true, reason: 'No seed data configured' });
+    }
+
     await ensureDemoShop();
     const body = (await req.json().catch(() => ({}))) as { replace?: boolean };
     const replace = body.replace === true;

@@ -103,10 +103,29 @@ function InventoryContent() {
         Product catalog with buy/sell prices and low-stock alerts. Qty is computed from purchases and sales.
       </p>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div className="page-actions">
         <Link href="/entry?mode=bulk" className="btn-secondary" style={{ textDecoration: 'none', fontSize: 13 }}>
           Import stock list
         </Link>
+        <button type="button" className="btn-secondary" onClick={() => setModalMode('add')}>
+          Add product…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={!selectedRow}
+          onClick={() => setModalMode('edit')}
+        >
+          Edit…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary inv-btn-delete"
+          disabled={!selectedRow}
+          onClick={handleDelete}
+        >
+          Delete
+        </button>
       </div>
 
       <div className="inv-toolbar">
@@ -143,7 +162,7 @@ function InventoryContent() {
       {items.length === 0 ? (
         <div className="empty-state">
           <p style={{ fontWeight: 500, color: 'var(--ink)' }}>No products yet.</p>
-          <p>Use Add product below to create your first item.</p>
+          <p>Use Add product above to create your first item.</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
@@ -198,28 +217,6 @@ function InventoryContent() {
           </table>
         </div>
       )}
-
-      <div className="inv-actions">
-        <button type="button" className="btn-secondary" onClick={() => setModalMode('add')}>
-          Add product…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!selectedRow}
-          onClick={() => setModalMode('edit')}
-        >
-          Edit…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary inv-btn-delete"
-          disabled={!selectedRow}
-          onClick={handleDelete}
-        >
-          Delete
-        </button>
-      </div>
 
       <InventoryProductModal
         mode={modalMode === 'edit' ? 'edit' : 'add'}

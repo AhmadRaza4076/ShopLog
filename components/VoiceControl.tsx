@@ -213,7 +213,7 @@ export function VoiceControl() {
           )}
           {lastReply && !pendingPreview && (
             <div style={{ marginTop: 8 }}>
-              <span className="label">Khaataa AI</span>
+              <span className="label">ShopLog</span>
               {lastReply}
             </div>
           )}

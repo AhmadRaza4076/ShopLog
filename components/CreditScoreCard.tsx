@@ -1,10 +1,15 @@
-import { StampBadge } from '@/components/StampBadge';
 import type { CreditScore } from '@/lib/scoring';
 
 const IMPACT_COLOR: Record<CreditScore['factors'][number]['impact'], string> = {
   positive: 'var(--leaf)',
-  neutral: 'var(--ink-soft)',
+  neutral: 'var(--brass)',
   negative: 'var(--stamp-red)',
+};
+
+const TIER_CLASS: Record<CreditScore['tier'], string> = {
+  Good: 'stamp-tier-good',
+  Fair: 'stamp-tier-fair',
+  'At risk': 'stamp-tier-risk',
 };
 
 interface CreditScoreCardProps {
@@ -14,7 +19,7 @@ interface CreditScoreCardProps {
 
 export function CreditScoreCard({ customerName, score }: CreditScoreCardProps) {
   return (
-    <div className="inv-banner" style={{ marginBottom: 16, border: '1px solid var(--rule-line)' }}>
+    <div className="credit-score-card">
       <p className="page-eyebrow" style={{ marginBottom: 12 }}>
         Credit readiness — {customerName}
       </p>
@@ -23,9 +28,9 @@ export function CreditScoreCard({ customerName, score }: CreditScoreCardProps) {
           <span className="stat-value" style={{ fontSize: 36 }}>
             {score.score}
           </span>
-          <span style={{ fontSize: 14, color: 'var(--ink-soft)', marginLeft: 6 }}>/ 100</span>
+          <span className="credit-score-denom">/ 100</span>
           <div style={{ marginTop: 8 }}>
-            <StampBadge variant="score">{score.tier}</StampBadge>
+            <span className={`stamp ${TIER_CLASS[score.tier]}`}>{score.tier}</span>
           </div>
         </div>
         <div className="factor-list" style={{ flex: 1 }}>

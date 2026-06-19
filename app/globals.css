@@ -682,6 +682,57 @@ button {
   flex-wrap: wrap;
 }
 
+.page-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.credit-score-card {
+  background: var(--ink-teal-soft);
+  border-radius: var(--radius-paper);
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--rule-line);
+}
+
+.credit-score-card .factor-text strong {
+  color: var(--paper);
+}
+
+.credit-score-card .factor-text span {
+  color: rgba(231, 218, 184, 0.78);
+}
+
+.credit-score-card .factor-row {
+  border-bottom-color: rgba(185, 168, 124, 0.35);
+}
+
+.credit-score-denom {
+  font-size: 14px;
+  color: rgba(231, 218, 184, 0.65);
+  margin-left: 6px;
+}
+
+.stamp-tier-good {
+  color: var(--leaf);
+  background: rgba(79, 107, 74, 0.15);
+  border-color: var(--leaf);
+}
+
+.stamp-tier-fair {
+  color: var(--brass);
+  background: rgba(169, 128, 63, 0.15);
+  border-color: var(--brass);
+}
+
+.stamp-tier-risk {
+  color: var(--stamp-red);
+  background: rgba(177, 75, 51, 0.12);
+  border-color: var(--stamp-red);
+}
+
 .inv-btn-delete:not(:disabled):hover {
   border-color: var(--stamp-red);
   color: var(--stamp-red);

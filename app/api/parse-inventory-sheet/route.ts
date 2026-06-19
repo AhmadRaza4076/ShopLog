@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseInventorySheetImage, parseInventorySheetText } from '@/lib/claude';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { extractTextFromDocument, isDocumentMimeType } from '@/lib/document-extract';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,8 @@ export async function POST(req: NextRequest) {
       text?: string;
       image?: string;
       mediaType?: 'image/jpeg' | 'image/png' | 'image/webp';
+      document?: string;
+      documentMimeType?: string;
     };
 
     if (body.text?.trim()) {
@@ -23,7 +26,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ rows: sanitizeRows(rows) });
     }
 
-    return NextResponse.json({ error: 'text or image is required' }, { status: 400 });
+    if (body.document && body.documentMimeType) {
+      if (!isDocumentMimeType(body.documentMimeType)) {
+        return NextResponse.json(
+          { error: 'Unsupported document type. Use PDF or Word (.docx) only.' },
+          { status: 400 }
+        );
+      }
+      const buffer = Buffer.from(body.document, 'base64');
+      const text = await extractTextFromDocument(buffer, body.documentMimeType);
+      const rows = await parseInventorySheetText(text);
+      return NextResponse.json({ rows: sanitizeRows(rows) });
+    }
+
+    return NextResponse.json({ error: 'text, image, or document is required' }, { status: 400 });
   } catch (error) {
     return apiErrorResponse(error, 'Could not read that inventory list.');
   }

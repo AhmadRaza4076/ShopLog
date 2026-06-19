@@ -23,8 +23,8 @@ import { findCustomers } from './voice-lookup';
 // A single hardcoded shop is enough for a hackathon demo — multi-shop
 // login/auth is real future work, not needed to prove the concept.
 export const DEMO_SHOP_ID = '00000000-0000-0000-0000-000000000001';
-export const DEMO_SHOP_NAME = 'Malik General Store';
-export const DEMO_OWNER_NAME = 'Malik Sahab';
+export const DEMO_SHOP_NAME = 'ShopLog';
+export const DEMO_OWNER_NAME = 'Owner';
 
 function getConnectionString(): string {
   const url = process.env.DATABASE_URL;

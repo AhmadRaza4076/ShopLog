@@ -10,6 +10,7 @@ import { resizeAndEncode } from '@/lib/photo-utils';
 import type { SpeechRecognitionLike } from '@/lib/speech';
 
 type InputMode = 'type' | 'voice' | 'photo';
+type BulkInputMode = 'type' | 'photo' | 'document';
 
 interface SavedResult {
   parsed: ParsedTransaction;
@@ -65,17 +66,22 @@ function EntryContent() {
 
   const [intent, setIntent] = useState<EntryIntent>('sale');
   const [inputMode, setInputMode] = useState<InputMode>('type');
+  const [bulkInputMode, setBulkInputMode] = useState<BulkInputMode>('type');
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoMediaType, setPhotoMediaType] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg');
+  const [documentBase64, setDocumentBase64] = useState<string | null>(null);
+  const [documentMimeType, setDocumentMimeType] = useState<string | null>(null);
+  const [documentFileName, setDocumentFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SavedResult | null>(null);
   const [bulkPreview, setBulkPreview] = useState<InventorySheetRow[] | null>(null);
   const [bulkImported, setBulkImported] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const intentParam = searchParams.get('intent');
@@ -89,6 +95,9 @@ function EntryContent() {
     setPhotoPreview(null);
     setPhotoBase64(null);
     setPhotoMediaType('image/jpeg');
+    setDocumentBase64(null);
+    setDocumentMimeType(null);
+    setDocumentFileName(null);
     setResult(null);
     setBulkPreview(null);
     setBulkImported(null);
@@ -176,17 +185,52 @@ function EntryContent() {
     }
   };
 
+  const handleDocumentSelect = async (file: File) => {
+    setError(null);
+    const mime = file.type || '';
+    const allowed = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!allowed.includes(mime)) {
+      setError('Use PDF or Word (.docx) only. Legacy .doc files are not supported.');
+      return;
+    }
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      bytes.forEach((b) => {
+        binary += String.fromCharCode(b);
+      });
+      setDocumentBase64(btoa(binary));
+      setDocumentMimeType(mime);
+      setDocumentFileName(file.name);
+      setPhotoPreview(null);
+      setPhotoBase64(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read document.');
+      setDocumentBase64(null);
+      setDocumentMimeType(null);
+      setDocumentFileName(null);
+    }
+  };
+
   const handleBulkParse = async () => {
     setLoading(true);
     setError(null);
     setBulkPreview(null);
     setBulkImported(null);
     try {
-      const payload = photoBase64
-        ? { image: photoBase64, mediaType: photoMediaType }
-        : { text };
-      if (!photoBase64 && !text.trim()) {
-        setError('Type a list or upload a photo first.');
+      let payload: Record<string, string>;
+      if (bulkInputMode === 'photo' && photoBase64) {
+        payload = { image: photoBase64, mediaType: photoMediaType };
+      } else if (bulkInputMode === 'document' && documentBase64 && documentMimeType) {
+        payload = { document: documentBase64, documentMimeType };
+      } else if (bulkInputMode === 'type' && text.trim()) {
+        payload = { text };
+      } else {
+        setError('Type a list, upload a photo, or choose a PDF/Word file first.');
         setLoading(false);
         return;
       }
@@ -216,8 +260,8 @@ function EntryContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rows: bulkPreview,
-          source: photoBase64 ? 'photo' : 'typed',
-          raw_input: text || '[Bulk inventory photo]',
+          source: bulkInputMode === 'photo' ? 'photo' : 'typed',
+          raw_input: text || documentFileName || '[Bulk inventory import]',
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Import failed.');
@@ -227,6 +271,9 @@ function EntryContent() {
       setText('');
       setPhotoPreview(null);
       setPhotoBase64(null);
+      setDocumentBase64(null);
+      setDocumentMimeType(null);
+      setDocumentFileName(null);
       dispatchRefresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed.');
@@ -241,7 +288,7 @@ function EntryContent() {
       <h1 className="page-title">{isBulk ? 'Import stock list' : 'Add entry'}</h1>
       <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: -16, marginBottom: 20 }}>
         {isBulk
-          ? 'Paste or photograph a full inventory list — all items import as stock purchases.'
+          ? 'Paste, photograph, or upload a PDF/Word stock list — all items import as stock purchases.'
           : 'Record sales, stock-in, payments, or credit. Stock-in updates inventory automatically.'}
       </p>
 
@@ -263,20 +310,26 @@ function EntryContent() {
         <>
           <div className="entry-bar" style={{ marginBottom: 16 }}>
             <button
-              className={`entry-mode-btn ${inputMode === 'type' ? 'active' : ''}`}
-              onClick={() => { setInputMode('type'); reset(); }}
+              className={`entry-mode-btn ${bulkInputMode === 'type' ? 'active' : ''}`}
+              onClick={() => { setBulkInputMode('type'); reset(); }}
             >
               ⌨️ Paste list
             </button>
             <button
-              className={`entry-mode-btn ${inputMode === 'photo' ? 'active' : ''}`}
-              onClick={() => { setInputMode('photo'); reset(); }}
+              className={`entry-mode-btn ${bulkInputMode === 'photo' ? 'active' : ''}`}
+              onClick={() => { setBulkInputMode('photo'); reset(); }}
             >
               📷 Photo of list
             </button>
+            <button
+              className={`entry-mode-btn ${bulkInputMode === 'document' ? 'active' : ''}`}
+              onClick={() => { setBulkInputMode('document'); reset(); }}
+            >
+              📄 PDF / Word
+            </button>
           </div>
 
-          {inputMode === 'type' && (
+          {bulkInputMode === 'type' && (
             <textarea
               className="entry-textarea"
               placeholder={'Cement (bag), 120, 950\nRice (50kg bag), 10, 7200\n...'}
@@ -286,7 +339,7 @@ function EntryContent() {
             />
           )}
 
-          {inputMode === 'photo' && (
+          {bulkInputMode === 'photo' && (
             <div>
               <input
                 ref={fileInputRef}
@@ -319,12 +372,49 @@ function EntryContent() {
             </div>
           )}
 
+          {bulkInputMode === 'document' && (
+            <div>
+              <input
+                ref={documentInputRef}
+                type="file"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDocumentSelect(file);
+                }}
+              />
+              {documentFileName ? (
+                <div>
+                  <p style={{ fontSize: 14, margin: '0 0 10px', color: 'var(--ink)' }}>
+                    Selected: <strong>{documentFileName}</strong>
+                  </p>
+                  <button className="btn-secondary" onClick={() => documentInputRef.current?.click()}>
+                    Choose another file
+                  </button>
+                </div>
+              ) : (
+                <button className="btn-secondary" onClick={() => documentInputRef.current?.click()}>
+                  📄 Upload PDF or Word (.docx)
+                </button>
+              )}
+              <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 10 }}>
+                Legacy .doc is not supported. Scanned PDFs with no text — use Photo of list instead.
+              </p>
+            </div>
+          )}
+
           {!bulkPreview && (
             <button
               className="btn-primary"
               style={{ marginTop: 12 }}
               onClick={handleBulkParse}
-              disabled={loading || (inputMode === 'type' && !text.trim()) || (inputMode === 'photo' && !photoBase64)}
+              disabled={
+                loading ||
+                (bulkInputMode === 'type' && !text.trim()) ||
+                (bulkInputMode === 'photo' && !photoBase64) ||
+                (bulkInputMode === 'document' && !documentBase64)
+              }
             >
               {loading ? 'Reading list…' : 'Preview items'}
             </button>
@@ -482,7 +572,7 @@ function EntryContent() {
                 )}
                 {(result.parsed.is_credit || result.parsed.type === 'payment') && result.parsed.customer_name && (
                   <Link href={`/khaataa?customer=${encodeURIComponent(result.parsed.customer_name)}`} style={{ fontSize: 13, color: 'var(--brass)' }}>
-                    Khaataa →
+                    Credit →
                   </Link>
                 )}
               </div>

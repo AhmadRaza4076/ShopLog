@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ['@anthropic-ai/sdk'],
+    serverComponentsExternalPackages: ['@anthropic-ai/sdk', 'pdf-parse', 'mammoth'],
   },
   webpack: (config, { dev }) => {
     if (dev) {

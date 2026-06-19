@@ -35,13 +35,19 @@ function SalesContent() {
       <p className="page-eyebrow">Point of sale</p>
       <h1 className="page-title">Sales</h1>
       <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: -16, marginBottom: 20 }}>
-        Grouped checkout receipts. Credit sales add to khaataa; cash sales with a customer are recorded for history only.
+        Grouped checkout receipts. Credit sales add to customer balances; cash sales with a customer are recorded for history only.
       </p>
+
+      <div className="page-actions">
+        <button type="button" className="btn-primary" onClick={() => setModalOpen(true)}>
+          Record new sale…
+        </button>
+      </div>
 
       {sales.length === 0 ? (
         <div className="empty-state">
           <p style={{ fontWeight: 500, color: 'var(--ink)' }}>No sales yet.</p>
-          <p>Record your first multi-line sale below.</p>
+          <p>Record your first multi-line sale above.</p>
         </div>
       ) : (
         <div className="inv-table-wrap">
@@ -71,12 +77,6 @@ function SalesContent() {
           </table>
         </div>
       )}
-
-      <div className="inv-actions">
-        <button type="button" className="btn-primary" onClick={() => setModalOpen(true)}>
-          Record new sale…
-        </button>
-      </div>
 
       <RecordSaleModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={load} />
     </div>

@@ -1,10 +1,10 @@
-# Khaataa AI
+# ShopLog
 
 **Live demo:** [shop-log-five.vercel.app](https://shop-log-five.vercel.app) · **Repo:** [github.com/AhmadRaza4076/ShopLog](https://github.com/AhmadRaza4076/ShopLog)
 
 An AI bookkeeper for small shops. Type a line, say it out loud, or photograph
 a receipt — it all becomes real bookkeeping: live dashboard, automatic
-inventory, khaataa (customer credit) tracking with AI-drafted reminders, and
+inventory, customer credit tracking with AI-drafted reminders, and
 an explainable credit-readiness score. A floating voice agent lets you run
 the entire app hands-free.
 
@@ -47,7 +47,7 @@ npm run dev
 
 `npm run dev` automatically frees ports 3000–3010 (kills stale dev servers) and always starts on **http://localhost:3000**. The terminal showing `✓ Ready` means the server is running — open that URL in your browser.
 
-**"Load demo data"** on the dashboard seeds a realistic week of activity for three sample customers.
+Add entries from the dashboard or import a stock list (paste, photo, PDF, or Word).
 
 ## 4. Deploy to Vercel (free)
 
@@ -60,19 +60,19 @@ npm run dev
 ## Key features
 
 - **Today's profit** — dashboard shows gross margin from today's sales using buy/sell prices already in `shop_items` and transaction rows (`lib/computed.ts` → `computeProfitSummary`). Ask by voice: *"aaj kitna munafa hua?"*
-- **Credit readiness score** — per-customer 0–100 score with explainable factors on the Khaataa screen (`lib/scoring.ts`). Ask by voice: *"Ali ka credit score kya hai?"*
+- **Credit readiness score** — per-customer 0–100 score with explainable factors on the Credit screen (`lib/scoring.ts`). Ask by voice: *"Ali ka credit score kya hai?"*
 - **WhatsApp reminders** — AI drafts a polite Urdu/English reminder; copy or tap **Send on WhatsApp** to open `wa.me` with the customer's phone (`lib/whatsapp.ts`).
 
 ## Demo script (3 minutes)
 
-1. **Dashboard** — Load demo data → point at *Today's profit* and *Total owed*
-2. **Entry** — Type or say a credit sale → inventory and khaataa update
-3. **Khaataa** — Select Ali Raza → credit score + factors → Draft reminder → **Send on WhatsApp**
+1. **Dashboard** — point at *Today's profit* and *Total owed*
+2. **Entry** — Type or say a credit sale → inventory and credit balance update
+3. **Credit** — Select a customer → credit score + factors → Draft reminder → **Send on WhatsApp**
 4. **Voice** — *"aaj kitna munafa hua?"* and *"Ali kitna baqi hai?"*
 
 ## How it's organized
 
-Every feature — inventory, khaataa balances, the credit score — is a
+Every feature — inventory, credit balances, the credit score — is a
 computed view over one `transactions` table. There's no separate table to
 keep in sync by hand; add a row, and every screen that depends on it updates
 correctly. See `lib/computed.ts` (client-side views) and `lib/scoring.ts`

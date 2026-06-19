@@ -196,7 +196,7 @@ function KhaataaContent() {
   if (!transactions) {
     return (
       <div className="page-surface">
-        <p className="empty-state">Loading the khaataa…</p>
+        <p className="empty-state">Loading credit ledger…</p>
       </div>
     );
   }
@@ -204,10 +204,64 @@ function KhaataaContent() {
   return (
     <div className="page-surface">
       <p className="page-eyebrow">Customer credit</p>
-      <h1 className="page-title">Khaataa</h1>
+      <h1 className="page-title">Credit</h1>
       <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: -16, marginBottom: 20 }}>
-        Digital khaataa — track who owes what, record payments and udhaar, open each customer&apos;s ledger.
+        Track who owes what, record payments and udhaar, open each customer&apos;s ledger.
       </p>
+
+      <div className="page-actions">
+        <button type="button" className="btn-secondary" onClick={() => setCustomerModal('add')}>
+          Add customer…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={!selected}
+          onClick={() => setCustomerModal('edit')}
+        >
+          Edit…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary inv-btn-delete"
+          disabled={!selected}
+          onClick={handleDelete}
+        >
+          Delete (safe only)
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={!selected}
+          onClick={() => setLedgerOpen(true)}
+        >
+          Open ledger…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={!selected || selected.balance <= 0}
+          onClick={() => setPaymentOpen(true)}
+        >
+          Record payment…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={!selected}
+          onClick={() => setUdhaarOpen(true)}
+        >
+          Record manual udhaar…
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={!selected || selected.balance <= 0 || reminderLoading}
+          onClick={requestReminder}
+        >
+          {reminderLoading ? 'Drafting…' : 'Draft reminder…'}
+        </button>
+      </div>
 
       <div className="inv-toolbar">
         <label className="inv-search-label">
@@ -225,7 +279,7 @@ function KhaataaContent() {
       {rows.length === 0 ? (
         <div className="empty-state">
           <p style={{ fontWeight: 500, color: 'var(--ink)' }}>No customers yet.</p>
-          <p>Use Add customer below to register someone, or record a credit sale from Entry.</p>
+          <p>Use Add customer above to register someone, or record a credit sale from Entry.</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
@@ -308,60 +362,6 @@ function KhaataaContent() {
         </div>
       )}
 
-      <div className="inv-actions">
-        <button type="button" className="btn-secondary" onClick={() => setCustomerModal('add')}>
-          Add customer…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!selected}
-          onClick={() => setCustomerModal('edit')}
-        >
-          Edit…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary inv-btn-delete"
-          disabled={!selected}
-          onClick={handleDelete}
-        >
-          Delete (safe only)
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!selected}
-          onClick={() => setLedgerOpen(true)}
-        >
-          Open ledger…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!selected || selected.balance <= 0}
-          onClick={() => setPaymentOpen(true)}
-        >
-          Record payment…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!selected}
-          onClick={() => setUdhaarOpen(true)}
-        >
-          Record manual udhaar…
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={!selected || selected.balance <= 0 || reminderLoading}
-          onClick={requestReminder}
-        >
-          {reminderLoading ? 'Drafting…' : 'Draft reminder…'}
-        </button>
-      </div>
-
       <KhaataaCustomerModal
         mode={customerModal === 'edit' ? 'edit' : 'add'}
         customer={customerModal === 'edit' ? selected : null}
@@ -404,7 +404,7 @@ export default function KhaataaPage() {
     <Suspense
       fallback={
         <div className="page-surface">
-          <p className="empty-state">Loading the khaataa…</p>
+          <p className="empty-state">Loading credit ledger…</p>
         </div>
       }
     >

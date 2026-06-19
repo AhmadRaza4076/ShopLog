@@ -4,7 +4,7 @@ import { VoiceControl } from '@/components/VoiceControl';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Khaataa AI — the digital ledger that listens',
+  title: 'ShopLog — the digital ledger that listens',
   description: 'AI bookkeeper for small shops: type it, say it, or photograph it.',
 };
 
@@ -22,8 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="app-shell">
           <aside className="sidebar">
-            <p className="brand">Khaataa AI</p>
-            <p className="brand-sub">Malik General Store</p>
+            <p className="brand">ShopLog</p>
             <NavTabs />
           </aside>
           <main className="main-area">{children}</main>

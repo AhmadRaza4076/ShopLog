@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { StampBadge } from '@/components/StampBadge';
 import { summarizeDashboard, formatRupees, timeAgo } from '@/lib/computed';
@@ -15,27 +14,7 @@ const TYPE_LABEL: Record<Transaction['type'], string> = {
 };
 
 export default function DashboardPage() {
-  const { transactions, error: setupError, reload: load } = useTransactions();
-  const [seeding, setSeeding] = useState(false);
-
-  const handleSeed = async () => {
-    let replace = false;
-    if (transactions && transactions.length > 0) {
-      const ok = window.confirm(
-        'This replaces all demo (system) transactions with a fresh set. Your own entries are kept.'
-      );
-      if (!ok) return;
-      replace = true;
-    }
-    setSeeding(true);
-    await fetch('/api/seed', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ replace }),
-    });
-    await load();
-    setSeeding(false);
-  };
+  const { transactions, error: setupError } = useTransactions();
 
   if (!transactions) {
     return <div className="page-surface"><p className="empty-state">Loading the ledger…</p></div>;
@@ -43,7 +22,6 @@ export default function DashboardPage() {
 
   const summary = summarizeDashboard(transactions);
   const recent = transactions.slice(0, 8);
-  const hasSystemData = transactions.some((t) => t.source === 'system');
 
   return (
     <div className="page-surface">
@@ -95,43 +73,31 @@ export default function DashboardPage() {
           <span className="stat-label">Today&rsquo;s sales</span>
           <span className="stat-value">{formatRupees(summary.todaySalesTotal)}</span>
         </div>
-        <div className="stat-card">
-          <span className="stat-label">Entries today</span>
-          <span className="stat-value">{summary.todayTransactionCount}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Items tracked</span>
-          <span className="stat-value">{summary.distinctItemsTracked}</span>
-        </div>
       </div>
 
       {transactions.length === 0 ? (
         <div className="empty-state">
           <p style={{ fontWeight: 500, color: 'var(--ink)' }}>The ledger is empty.</p>
-          <p>Add your first entry, or load realistic demo data to see the app in action.</p>
+          <p>Add your first entry or import a stock list to get started.</p>
           <p style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 8 }}>
             Use Chrome or Edge for full voice control.
           </p>
-          <div style={{ marginTop: 16 }}>
-            <button className="btn-primary" onClick={handleSeed} disabled={seeding}>
-              {seeding ? 'Loading demo data…' : 'Load demo data'}
-            </button>
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <Link href="/entry" className="btn-primary" style={{ textDecoration: 'none', fontSize: 13 }}>
+              Add entry
+            </Link>
+            <Link href="/entry?mode=bulk" className="btn-secondary" style={{ textDecoration: 'none', fontSize: 13 }}>
+              Import stock list
+            </Link>
           </div>
         </div>
       ) : (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 12 }}>
             <p className="page-eyebrow" style={{ margin: 0 }}>Recent activity</p>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Link href="/history" style={{ fontSize: 13, color: 'var(--brass)' }}>
-                View full history →
-              </Link>
-              {hasSystemData && (
-                <button className="btn-secondary" onClick={handleSeed} disabled={seeding} style={{ fontSize: 12, padding: '6px 12px' }}>
-                  {seeding ? 'Resetting…' : 'Reset demo data'}
-                </button>
-              )}
-            </div>
+            <Link href="/history" style={{ fontSize: 13, color: 'var(--brass)' }}>
+              View full history →
+            </Link>
           </div>
           <div className="ledger-rows">
             {recent.map((t) => (
