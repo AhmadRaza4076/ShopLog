@@ -7,24 +7,9 @@ import {
   sql,
 } from '@/lib/db';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { CUSTOMER_PHONES, SEED_DATA } from '@/lib/seed-data';
 
 export const dynamic = 'force-dynamic';
-
-interface SeedTxn {
-  type: 'sale' | 'purchase' | 'payment' | 'credit_given';
-  item_name: string | null;
-  quantity: number | null;
-  unit_price: number | null;
-  total_amount: number;
-  customer_name: string | null;
-  is_credit: boolean;
-  daysAgo: number;
-}
-
-/** Populate when custom demo data is provided. */
-const CUSTOMER_PHONES: Record<string, string> = {};
-
-const SEED_DATA: SeedTxn[] = [];
 
 export async function POST(req: NextRequest) {
   try {

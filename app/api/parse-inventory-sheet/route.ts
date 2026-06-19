@@ -4,6 +4,7 @@ import { apiErrorResponse } from '@/lib/api-errors';
 import { extractTextFromDocument, isDocumentMimeType } from '@/lib/document-extract';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /** Parse a bulk inventory list — preview only, does not write to DB. */
 export async function POST(req: NextRequest) {

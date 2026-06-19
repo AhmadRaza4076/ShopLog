@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { StampBadge } from '@/components/StampBadge';
 import { summarizeDashboard, formatRupees, timeAgo } from '@/lib/computed';
@@ -14,7 +15,27 @@ const TYPE_LABEL: Record<Transaction['type'], string> = {
 };
 
 export default function DashboardPage() {
-  const { transactions, error: setupError } = useTransactions();
+  const { transactions, error: setupError, reload: load } = useTransactions();
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeed = async () => {
+    let replace = false;
+    if (transactions && transactions.length > 0) {
+      const ok = window.confirm(
+        'This replaces all demo (system) transactions with a fresh set from the supplier price lists. Your own entries are kept.'
+      );
+      if (!ok) return;
+      replace = true;
+    }
+    setSeeding(true);
+    await fetch('/api/seed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ replace }),
+    });
+    await load();
+    setSeeding(false);
+  };
 
   if (!transactions) {
     return <div className="page-surface"><p className="empty-state">Loading the ledger…</p></div>;
@@ -22,6 +43,7 @@ export default function DashboardPage() {
 
   const summary = summarizeDashboard(transactions);
   const recent = transactions.slice(0, 8);
+  const hasSystemData = transactions.some((t) => t.source === 'system');
 
   return (
     <div className="page-surface">
@@ -78,12 +100,15 @@ export default function DashboardPage() {
       {transactions.length === 0 ? (
         <div className="empty-state">
           <p style={{ fontWeight: 500, color: 'var(--ink)' }}>The ledger is empty.</p>
-          <p>Add your first entry or import a stock list to get started.</p>
+          <p>Load sample stock from Appollo, Phoenix, and Kiwi price lists, or add your own entries.</p>
           <p style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 8 }}>
             Use Chrome or Edge for full voice control.
           </p>
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-            <Link href="/entry" className="btn-primary" style={{ textDecoration: 'none', fontSize: 13 }}>
+            <button className="btn-primary" onClick={handleSeed} disabled={seeding}>
+              {seeding ? 'Loading sample data…' : 'Load sample data'}
+            </button>
+            <Link href="/entry" className="btn-secondary" style={{ textDecoration: 'none', fontSize: 13 }}>
               Add entry
             </Link>
             <Link href="/entry?mode=bulk" className="btn-secondary" style={{ textDecoration: 'none', fontSize: 13 }}>
@@ -95,9 +120,16 @@ export default function DashboardPage() {
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 12 }}>
             <p className="page-eyebrow" style={{ margin: 0 }}>Recent activity</p>
-            <Link href="/history" style={{ fontSize: 13, color: 'var(--brass)' }}>
-              View full history →
-            </Link>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Link href="/history" style={{ fontSize: 13, color: 'var(--brass)' }}>
+                View full history →
+              </Link>
+              {hasSystemData && (
+                <button className="btn-secondary" onClick={handleSeed} disabled={seeding} style={{ fontSize: 12, padding: '6px 12px' }}>
+                  {seeding ? 'Resetting…' : 'Reset sample data'}
+                </button>
+              )}
+            </div>
           </div>
           <div className="ledger-rows">
             {recent.map((t) => (

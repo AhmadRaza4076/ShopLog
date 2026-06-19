@@ -1,3 +1,6 @@
+import 'pdf-parse/worker';
+import { CanvasFactory } from 'pdf-parse/worker';
+import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 
 export const DOCUMENT_MIME = {
@@ -13,8 +16,7 @@ export function isDocumentMimeType(mime: string): mime is DocumentMimeType {
 
 export async function extractTextFromDocument(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === DOCUMENT_MIME.pdf) {
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: buffer });
+    const parser = new PDFParse({ data: buffer, CanvasFactory });
     try {
       const result = await parser.getText();
       const text = result.text?.trim() ?? '';

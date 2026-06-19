@@ -47,7 +47,7 @@ npm run dev
 
 `npm run dev` automatically frees ports 3000–3010 (kills stale dev servers) and always starts on **http://localhost:3000**. The terminal showing `✓ Ready` means the server is running — open that URL in your browser.
 
-Add entries from the dashboard or import a stock list (paste, photo, PDF, or Word).
+Add entries from the dashboard or import a stock list (paste, photo, PDF, or Word). **Load sample data** seeds inventory from Appollo, Phoenix Homewares, and Kiwi Collection price lists plus sample credit sales.
 
 ## 4. Deploy to Vercel (free)
 
