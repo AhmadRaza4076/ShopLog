@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   DEMO_SHOP_ID,
-  backfillShopItemsFromTransactions,
   countItemTransactions,
   deleteShopItem,
   ensureDemoShop,
   getAllTransactions,
   getShopItems,
-  normalizeShopItemNames,
   saveParsedTransaction,
   updateShopItem,
 } from '@/lib/db';
@@ -21,8 +19,6 @@ export const dynamic = 'force-dynamic';
 type RouteContext = { params: { itemName: string } };
 
 async function loadInventory() {
-  await normalizeShopItemNames(DEMO_SHOP_ID);
-  await backfillShopItemsFromTransactions(DEMO_SHOP_ID);
   const [transactions, catalog] = await Promise.all([
     getAllTransactions(DEMO_SHOP_ID),
     getShopItems(DEMO_SHOP_ID),

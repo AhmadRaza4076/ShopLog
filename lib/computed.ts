@@ -1,6 +1,18 @@
 import { computeInventoryMerged } from './item-names';
 import type { InventoryRow, ParsedTransaction, SaleRow, ShopItem, Transaction, TransactionType } from './types';
 
+export const STOCK_ADJUSTMENT_MARKER = 'Stock adjustment';
+
+export function isStockAdjustment(t: Pick<Transaction, 'sale_notes' | 'raw_input'>): boolean {
+  const notes = t.sale_notes ?? '';
+  const raw = t.raw_input ?? '';
+  return notes.includes(STOCK_ADJUSTMENT_MARKER) || raw.includes(STOCK_ADJUSTMENT_MARKER);
+}
+
+export function isRealSale(t: Transaction): boolean {
+  return t.type === 'sale' && !isStockAdjustment(t);
+}
+
 /** Single source of truth: does this row add to a customer's khaataa balance? */
 export function countsTowardCustomerBalance(t: { type: string; is_credit: boolean }): boolean {
   if (t.type === 'payment' || t.type === 'purchase') return false;
@@ -83,12 +95,7 @@ export interface ProfitSummary {
 
 function findInventoryRow(inventory: InventoryRow[], itemName: string): InventoryRow | undefined {
   const target = itemName.trim().toLowerCase();
-  return inventory.find(
-    (r) =>
-      r.item_name.toLowerCase() === target ||
-      r.item_name.toLowerCase().includes(target) ||
-      target.includes(r.item_name.toLowerCase())
-  );
+  return inventory.find((r) => r.item_name.trim().toLowerCase() === target);
 }
 
 export function computeProfitSummary(
@@ -96,7 +103,7 @@ export function computeProfitSummary(
   catalog: ShopItem[] = []
 ): ProfitSummary {
   const inventory = computeInventoryMerged(transactions, catalog);
-  const todaySales = transactions.filter((t) => t.type === 'sale' && isToday(t.created_at));
+  const todaySales = transactions.filter((t) => isRealSale(t) && isToday(t.created_at));
 
   const lines: SaleProfitLine[] = [];
   let todaySalesMissingCost = 0;
@@ -140,7 +147,7 @@ export function summarizeDashboard(
   catalog: ShopItem[] = []
 ): DashboardSummary {
   const todays = transactions.filter((t) => isToday(t.created_at));
-  const todaySales = todays.filter((t) => t.type === 'sale');
+  const todaySales = todays.filter((t) => isRealSale(t));
 
   const owedByCustomer = computeCustomerBalances(transactions);
   const totalOwed = Object.values(owedByCustomer).reduce((sum, c) => sum + c.balance, 0);
@@ -203,12 +210,7 @@ export function projectStockLevel(
 ): number {
   const inventory = computeInventoryMerged(transactions);
   const target = itemName.trim().toLowerCase();
-  const row = inventory.find(
-    (r) =>
-      r.item_name.toLowerCase() === target ||
-      r.item_name.toLowerCase().includes(target) ||
-      target.includes(r.item_name.toLowerCase())
-  );
+  const row = inventory.find((r) => r.item_name.trim().toLowerCase() === target);
   const current = row?.quantity_on_hand ?? 0;
   if (delta.type === 'purchase') return current + delta.quantity;
   return current - delta.quantity;
@@ -359,7 +361,7 @@ function formatLineSummary(itemName: string | null, quantity: number | null): st
 
 /** Group sale transactions into checkout receipts for the Sales page. */
 export function computeSalesGrouped(transactions: Transaction[]): SaleRow[] {
-  const sales = transactions.filter((t) => t.type === 'sale');
+  const sales = transactions.filter((t) => isRealSale(t));
   const groups = new Map<string, Transaction[]>();
 
   for (const t of sales) {

@@ -4,10 +4,12 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { VOICE_REFRESH_EVENT } from '@/components/VoiceControl';
+import { apiFetch } from '@/lib/api-fetch';
 import type { EntryIntent, InventorySheetRow, ParsedTransaction, Transaction } from '@/lib/types';
 import { formatRupees } from '@/lib/computed';
 import { resizeAndEncode } from '@/lib/photo-utils';
 import type { SpeechRecognitionLike } from '@/lib/speech';
+import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 
 type InputMode = 'type' | 'voice' | 'photo';
 type BulkInputMode = 'type' | 'photo' | 'document';
@@ -126,7 +128,7 @@ function EntryContent() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetch('/api/parse-text', {
+      const res = await apiFetch('/api/parse-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,6 +151,10 @@ function EntryContent() {
 
   const handlePhotoSelect = async (file: File) => {
     setError(null);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError('Photo is too large — maximum size is 5 MB.');
+      return;
+    }
     try {
       const base64 = await resizeAndEncode(file);
       setPhotoMediaType('image/jpeg');
@@ -167,7 +173,7 @@ function EntryContent() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetch('/api/parse-receipt', {
+      const res = await apiFetch('/api/parse-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: photoBase64, mediaType: photoMediaType, intent }),
@@ -194,6 +200,10 @@ function EntryContent() {
     ];
     if (!allowed.includes(mime)) {
       setError('Use PDF or Word (.docx) only. Legacy .doc files are not supported.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError('Document is too large — maximum size is 5 MB.');
       return;
     }
     try {
@@ -255,7 +265,7 @@ function EntryContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/import-inventory-sheet', {
+      const res = await apiFetch('/api/import-inventory-sheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

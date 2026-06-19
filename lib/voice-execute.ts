@@ -202,9 +202,18 @@ export async function executeVoiceAction(payload: VoiceActionPayload): Promise<V
           speech: `I don't have a customer named ${action.customer_name} in the ledger.`,
         };
       }
+      if (balance.balance <= 0) {
+        return {
+          speech: `${balance.name} has no outstanding balance.`,
+        };
+      }
       const transaction = await recordPayment(DEMO_SHOP_ID, action.customer_name, action.amount);
+      let speech = `Recorded a payment of ${action.amount} rupees from ${balance.name}.`;
+      if (action.amount > balance.balance) {
+        speech += ` Note: this exceeds their balance of ${formatRupees(balance.balance)}.`;
+      }
       return {
-        speech: `Recorded a payment of ${action.amount} rupees from ${balance.name}.`,
+        speech,
         navigate: 'khaataa',
         navigateQuery: { customer: balance.name },
         data: transaction,

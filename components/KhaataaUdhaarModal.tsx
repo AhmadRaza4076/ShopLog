@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api-fetch';
 
 interface KhaataaUdhaarModalProps {
   open: boolean;
@@ -40,7 +41,7 @@ export default function KhaataaUdhaarModal({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/khaataa/udhaar', {
+      const res = await apiFetch('/api/khaataa/udhaar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

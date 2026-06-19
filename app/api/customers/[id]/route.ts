@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validate as isUuid } from 'uuid';
 import {
   DEMO_SHOP_ID,
   deleteCustomer,
@@ -13,8 +14,18 @@ export const dynamic = 'force-dynamic';
 
 type RouteContext = { params: { id: string } };
 
+function assertValidCustomerId(id: string): NextResponse | null {
+  if (!isUuid(id)) {
+    return NextResponse.json({ error: 'Invalid customer ID.' }, { status: 400 });
+  }
+  return null;
+}
+
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   try {
+    const idError = assertValidCustomerId(params.id);
+    if (idError) return idError;
+
     await ensureDemoShop();
     const body = (await req.json()) as CustomerInput;
 
@@ -41,6 +52,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
+    const idError = assertValidCustomerId(params.id);
+    if (idError) return idError;
+
     await ensureDemoShop();
     await deleteCustomer(DEMO_SHOP_ID, params.id);
     const customers = await getAllCustomers(DEMO_SHOP_ID);

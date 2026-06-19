@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseInventorySheetImage, parseInventorySheetText } from '@/lib/claude';
 import { apiErrorResponse } from '@/lib/api-errors';
 import { extractTextFromDocument, isDocumentMimeType } from '@/lib/document-extract';
+import { assertBase64UploadSize, assertTextLength } from '@/lib/upload-limits';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,11 +19,13 @@ export async function POST(req: NextRequest) {
     };
 
     if (body.text?.trim()) {
+      assertTextLength(body.text);
       const rows = await parseInventorySheetText(body.text);
       return NextResponse.json({ rows: sanitizeRows(rows) });
     }
 
     if (body.image) {
+      assertBase64UploadSize(body.image, 'Image');
       const rows = await parseInventorySheetImage(body.image, body.mediaType ?? 'image/jpeg');
       return NextResponse.json({ rows: sanitizeRows(rows) });
     }
@@ -34,8 +37,10 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      assertBase64UploadSize(body.document, 'Document');
       const buffer = Buffer.from(body.document, 'base64');
       const text = await extractTextFromDocument(buffer, body.documentMimeType);
+      assertTextLength(text, 'Extracted document text');
       const rows = await parseInventorySheetText(text);
       return NextResponse.json({ rows: sanitizeRows(rows) });
     }

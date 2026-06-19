@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api-fetch';
 
 interface KhaataaPaymentModalProps {
   open: boolean;
@@ -40,7 +41,7 @@ export default function KhaataaPaymentModal({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/record-payment', {
+      const res = await apiFetch('/api/record-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customer_name: customerName, amount: parsed }),

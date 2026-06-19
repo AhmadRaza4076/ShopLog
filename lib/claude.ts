@@ -104,6 +104,10 @@ function extractJson<T>(text: string): T {
   return JSON.parse(cleaned) as T;
 }
 
+function isJsonParseError(err: unknown): boolean {
+  return err instanceof SyntaxError;
+}
+
 async function parseStructuredTransaction(
   params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>
 ): Promise<ParsedTransaction> {
@@ -111,9 +115,15 @@ async function parseStructuredTransaction(
     const response = await createMessage(params, MODEL_SONNET);
     return extractJson<ParsedTransaction>(textFromMessage(response));
   } catch (err) {
-    if (isModelAccessError(err)) throw err;
-    const response = await createMessage(params, MODEL_OPUS);
-    return extractJson<ParsedTransaction>(textFromMessage(response));
+    if (isModelAccessError(err)) {
+      const response = await createMessage(params, MODEL_OPUS);
+      return extractJson<ParsedTransaction>(textFromMessage(response));
+    }
+    if (isJsonParseError(err)) {
+      const response = await createMessage(params, MODEL_SONNET);
+      return extractJson<ParsedTransaction>(textFromMessage(response));
+    }
+    throw err;
   }
 }
 
@@ -173,10 +183,18 @@ export async function parseReceiptImage(
     const parsed = extractJson<ParsedTransaction>(textFromMessage(response));
     if (parsed.confidence !== 'low') return parsed;
   } catch (err) {
-    if (isModelAccessError(err)) throw err;
+    if (isModelAccessError(err)) {
+      const response = await createMessage(params, MODEL_OPUS);
+      return extractJson<ParsedTransaction>(textFromMessage(response));
+    }
+    if (isJsonParseError(err)) {
+      const response = await createMessage(params, MODEL_SONNET);
+      return extractJson<ParsedTransaction>(textFromMessage(response));
+    }
+    throw err;
   }
 
-  const response = await createMessage(params, MODEL_OPUS);
+  const response = await createMessage(params, MODEL_SONNET);
   return extractJson<ParsedTransaction>(textFromMessage(response));
 }
 
@@ -188,10 +206,17 @@ async function parseInventorySheetJson(
     const rows = extractJson<InventorySheetRow[]>(textFromMessage(response));
     return Array.isArray(rows) ? rows : [];
   } catch (err) {
-    if (isModelAccessError(err)) throw err;
-    const response = await createMessage(params, MODEL_OPUS);
-    const rows = extractJson<InventorySheetRow[]>(textFromMessage(response));
-    return Array.isArray(rows) ? rows : [];
+    if (isModelAccessError(err)) {
+      const response = await createMessage(params, MODEL_OPUS);
+      const rows = extractJson<InventorySheetRow[]>(textFromMessage(response));
+      return Array.isArray(rows) ? rows : [];
+    }
+    if (isJsonParseError(err)) {
+      const response = await createMessage(params, MODEL_SONNET);
+      const rows = extractJson<InventorySheetRow[]>(textFromMessage(response));
+      return Array.isArray(rows) ? rows : [];
+    }
+    throw err;
   }
 }
 
@@ -515,14 +540,18 @@ export async function runVoiceCommand(transcript: string): Promise<VoiceAgentAct
     if (action.tool !== 'unclear') return action;
     sonnetUnclear = action;
   } catch (err) {
-    if (isModelAccessError(err)) throw err;
+    if (isModelAccessError(err)) {
+      const opusResponse = await createMessage(params, MODEL_OPUS);
+      return voiceActionFromResponse(opusResponse);
+    }
+    throw err;
   }
 
   try {
     const opusResponse = await createMessage(params, MODEL_OPUS);
     return voiceActionFromResponse(opusResponse);
   } catch (err) {
-    if (isModelAccessError(err) && sonnetUnclear) return sonnetUnclear;
+    if (sonnetUnclear) return sonnetUnclear;
     throw err;
   }
 }

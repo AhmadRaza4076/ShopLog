@@ -142,7 +142,7 @@ export function buildSetStockParsed(
     item_name: resolved,
     quantity: reduceBy,
     unit_price: price,
-    total_amount: price != null ? price * reduceBy : 0,
+    total_amount: price != null ? price * reduceBy : reduceBy,
     customer_name: null,
     is_credit: false,
     confidence: 'high',

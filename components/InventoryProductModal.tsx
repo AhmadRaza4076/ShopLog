@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api-fetch';
 import { formatPriceInput, formatQtyInput } from '@/lib/computed';
 import type { InventoryRow, ShopItemInput } from '@/lib/types';
 
@@ -84,7 +85,7 @@ export default function InventoryProductModal({
         mode === 'add'
           ? '/api/inventory'
           : `/api/inventory/${encodeURIComponent(item!.item_name)}`;
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: mode === 'add' ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

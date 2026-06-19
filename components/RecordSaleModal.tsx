@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { formatPriceInput, formatRupees } from '@/lib/computed';
-import type { CustomerRecord, InventoryRow, SaleInput } from '@/lib/types';
+import { apiFetch } from '@/lib/api-fetch';
+import { formatPriceInput, formatRupees, stockWarningForParsed } from '@/lib/computed';
+import type { CustomerRecord, InventoryRow, SaleInput, Transaction } from '@/lib/types';
 
 interface RecordSaleModalProps {
   open: boolean;
@@ -36,8 +37,10 @@ export default function RecordSaleModal({ open, onClose, onSaved }: RecordSaleMo
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [inventory, setInventory] = useState<InventoryRow[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -47,13 +50,18 @@ export default function RecordSaleModal({ open, onClose, onSaved }: RecordSaleMo
     setLines([emptyLine()]);
     setSelectedKeys(new Set());
     setError(null);
+    setStockWarning(null);
 
-    Promise.all([fetch('/api/customers'), fetch('/api/inventory')]).then(async ([cRes, iRes]) => {
-      const cData = await cRes.json();
-      const iData = await iRes.json();
-      setCustomers(cData.customers ?? []);
-      setInventory(iData.items ?? []);
-    });
+    Promise.all([fetch('/api/customers'), fetch('/api/inventory'), fetch('/api/transactions')]).then(
+      async ([cRes, iRes, tRes]) => {
+        const cData = await cRes.json();
+        const iData = await iRes.json();
+        const tData = await tRes.json();
+        setCustomers(cData.customers ?? []);
+        setInventory(iData.items ?? []);
+        setTransactions(tData.transactions ?? []);
+      }
+    );
   }, [open]);
 
   const inventoryByName = useMemo(() => {
@@ -71,6 +79,22 @@ export default function RecordSaleModal({ open, onClose, onSaved }: RecordSaleMo
       return sum + qty;
     }, 0);
   }, [lines]);
+
+  useEffect(() => {
+    if (!open) return;
+    const warnings: string[] = [];
+    for (const line of lines) {
+      const qty = parseNum(line.quantity);
+      if (!line.item_name.trim() || qty == null || qty <= 0) continue;
+      const warning = stockWarningForParsed(transactions, {
+        type: 'sale',
+        item_name: line.item_name.trim(),
+        quantity: qty,
+      });
+      if (warning) warnings.push(warning);
+    }
+    setStockWarning(warnings.length ? warnings.join(' ') : null);
+  }, [lines, transactions, open]);
 
   if (!open) return null;
 
@@ -142,7 +166,7 @@ export default function RecordSaleModal({ open, onClose, onSaved }: RecordSaleMo
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/sales', {
+      const res = await apiFetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -309,6 +333,10 @@ export default function RecordSaleModal({ open, onClose, onSaved }: RecordSaleMo
           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, textAlign: 'right' }}>
             Sale total: {formatRupees(saleTotal)}
           </p>
+
+          {stockWarning && (
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--brass)' }}>{stockWarning}</p>
+          )}
 
           {error && <p className="inv-modal-error">{error}</p>}
 

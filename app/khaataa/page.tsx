@@ -9,6 +9,7 @@ import KhaataaUdhaarModal from '@/components/KhaataaUdhaarModal';
 import { CreditScoreCard } from '@/components/CreditScoreCard';
 import { StampBadge } from '@/components/StampBadge';
 import { VOICE_REFRESH_EVENT, PENDING_REMINDER_KEY } from '@/components/VoiceControl';
+import { apiFetch } from '@/lib/api-fetch';
 import { computeCustomerBalances, formatRupees } from '@/lib/computed';
 import { computeCreditScore } from '@/lib/scoring';
 import { whatsAppSendUrl } from '@/lib/whatsapp';
@@ -144,7 +145,7 @@ function KhaataaContent() {
     ) {
       return;
     }
-    const res = await fetch(`/api/customers/${selected.id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/customers/${selected.id}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) {
       alert(data.error ?? 'Delete failed.');
@@ -161,7 +162,7 @@ function KhaataaContent() {
     setReminder(null);
     setCopied(false);
     try {
-      const res = await fetch('/api/reminder-draft', {
+      const res = await apiFetch('/api/reminder-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customer_name: selected.name }),

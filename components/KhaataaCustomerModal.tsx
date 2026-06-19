@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api-fetch';
 import type { CustomerInput, CustomerRecord } from '@/lib/types';
 
 export type CustomerModalMode = 'add' | 'edit';
@@ -59,7 +60,7 @@ export default function KhaataaCustomerModal({
     setError(null);
     try {
       const url = mode === 'add' ? '/api/customers' : `/api/customers/${customer!.id}`;
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: mode === 'add' ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

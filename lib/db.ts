@@ -12,13 +12,13 @@ import type {
   SaveTransactionOptions,
 } from './types';
 import {
-  buildItemNameFixes,
   canonicalItemName,
   collectKnownItemNames,
   itemNameClusters,
 } from './item-names';
-import { computeSalesGrouped, normalizeParsedTransaction } from './computed';
+import { computeSalesGrouped, normalizeParsedTransaction, STOCK_ADJUSTMENT_MARKER } from './computed';
 import { findCustomers } from './voice-lookup';
+import { assertValidParsedTransaction } from './validate-transaction';
 
 // A single hardcoded shop is enough for a hackathon demo — multi-shop
 // login/auth is real future work, not needed to prove the concept.
@@ -50,16 +50,19 @@ export function sql(): NeonQueryFunction<false, false> {
 }
 
 /**
- * Ensures the demo shop row exists. Safe to call on every request;
- * it's a no-op after the first time.
+ * Ensures the demo shop row exists. Memoized per process — safe to call on every request.
  */
+let demoShopReady = false;
+
 export async function ensureDemoShop() {
+  if (demoShopReady) return;
   const db = sql();
   await db`
     insert into shops (id, name, owner_name)
     values (${DEMO_SHOP_ID}, ${DEMO_SHOP_NAME}, ${DEMO_OWNER_NAME})
     on conflict (id) do nothing
   `;
+  demoShopReady = true;
 }
 
 export async function getShop(shopId: string): Promise<{ id: string; name: string; owner_name: string } | null> {
@@ -229,20 +232,9 @@ export async function deleteCustomer(shopId: string, customerId: string): Promis
   await db`delete from customers where id = ${customerId} and shop_id = ${shopId}`;
 }
 
-export async function normalizeShopItemNames(shopId: string): Promise<number> {
-  const transactions = await getAllTransactions(shopId);
-  const fixes = buildItemNameFixes(transactions);
-  if (fixes.length === 0) return 0;
-
-  const db = sql();
-  for (const { from, to } of fixes) {
-    await db`
-      update transactions
-      set item_name = ${to}
-      where shop_id = ${shopId} and item_name = ${from}
-    `;
-  }
-  return fixes.length;
+/** @deprecated Substring item-name merging was removed. No-op kept for compatibility. */
+export async function normalizeShopItemNames(_shopId: string): Promise<number> {
+  return 0;
 }
 
 /**
@@ -259,7 +251,7 @@ export async function saveParsedTransaction(
   options?: SaveTransactionOptions
 ): Promise<Transaction> {
   const db = sql();
-  const normalized = normalizeParsedTransaction(parsed);
+  const normalized = assertValidParsedTransaction(normalizeParsedTransaction(parsed));
 
   let customerId: string | null = null;
   let customerName: string | null = null;
@@ -269,15 +261,21 @@ export async function saveParsedTransaction(
     customerName = customer.name;
   }
 
+  let knownNames = options?.knownNames;
+  if (!knownNames) {
+    const existing = await getAllTransactions(shopId);
+    knownNames = collectKnownItemNames(existing);
+  }
+
   let itemName = normalized.item_name;
   if (itemName?.trim()) {
-    const existing = await getAllTransactions(shopId);
-    const known = collectKnownItemNames(existing);
-    itemName = canonicalItemName(itemName, known);
+    itemName = canonicalItemName(itemName, knownNames);
   }
 
   const saleId = options?.sale_id ?? null;
-  const saleNotes = options?.sale_notes ?? null;
+  const adjustmentNote =
+    normalized.note?.includes(STOCK_ADJUSTMENT_MARKER) ? normalized.note : null;
+  const saleNotes = options?.sale_notes ?? adjustmentNote ?? null;
 
   const rows = await db`
     insert into transactions
@@ -291,7 +289,7 @@ export async function saveParsedTransaction(
   const row = rows[0] as Transaction;
   const saved = { ...row, customer_name: customerName };
 
-  if (itemName?.trim()) {
+  if (itemName?.trim() && !options?.skipShopItemUpsert) {
     await upsertShopItemFromTransaction(shopId, itemName, normalized.type, normalized.unit_price);
   }
 
@@ -345,6 +343,7 @@ export async function saveSale(
     const txn = await saveParsedTransaction(shopId, parsed, source, rawBase, {
       sale_id: saleId,
       sale_notes: i === 0 ? notes : null,
+      knownNames: known,
     });
     transactions.push(txn);
   }
@@ -370,6 +369,10 @@ export async function recordPayment(
   customerName: string,
   amount: number
 ): Promise<Transaction> {
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+    throw new Error('amount must be a positive number.');
+  }
+
   const balance = await getCustomerBalance(shopId, customerName);
   if (!balance) {
     throw new Error(`No customer named "${customerName.trim()}" found in the ledger.`);
@@ -449,7 +452,7 @@ export async function getShopItemByName(
   const db = sql();
   const rows = await db`
     select * from shop_items
-    where shop_id = ${shopId} and item_name = ${itemName.trim()}
+    where shop_id = ${shopId} and lower(item_name) = lower(${itemName.trim()})
     limit 1
   `;
   if (rows.length === 0) return null;

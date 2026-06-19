@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { StampBadge } from '@/components/StampBadge';
+import { apiFetch } from '@/lib/api-fetch';
 import { summarizeDashboard, formatRupees, timeAgo } from '@/lib/computed';
 import { useTransactions } from '@/lib/hooks/use-transactions';
 import type { Transaction } from '@/lib/types';
@@ -28,7 +29,7 @@ export default function DashboardPage() {
       replace = true;
     }
     setSeeding(true);
-    await fetch('/api/seed', {
+    await apiFetch('/api/seed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ replace }),

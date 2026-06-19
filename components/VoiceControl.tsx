@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api-fetch';
 import type { SpeechRecognitionLike } from '@/lib/speech';
 import type { VoiceActionPayload } from '@/lib/voice-preview';
 
@@ -79,7 +80,7 @@ export function VoiceControl() {
     if (!pendingAction) return;
     setExecuting(true);
     try {
-      const res = await fetch('/api/voice-command/execute', {
+      const res = await apiFetch('/api/voice-command/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pendingAction),
@@ -106,7 +107,7 @@ export function VoiceControl() {
       return;
     }
     const recognition = new Ctor();
-    recognition.lang = 'en-PK';
+    recognition.lang = 'ur-PK';
     recognition.continuous = false;
     recognition.interimResults = false;
 
@@ -146,10 +147,21 @@ export function VoiceControl() {
     recognition.onerror = (event) => {
       setListening(false);
       const err = (event as Event & { error?: string }).error;
+      if (err === 'language-not-supported') {
+        recognition.lang = 'en-PK';
+        setLastReply('Urdu voice not supported in this browser — using English (Pakistan).');
+        return;
+      }
       if (err === 'not-allowed') {
         setLastReply('Microphone access denied — allow mic permission in your browser settings.');
       } else if (err === 'no-speech') {
         setLastReply("Didn't catch anything — try again.");
+      } else if (err === 'network') {
+        setLastReply('Network error — check your connection and try again.');
+      } else if (err === 'audio-capture') {
+        setLastReply('No microphone found — connect a mic and try again.');
+      } else if (err === 'aborted') {
+        setLastReply('Voice input stopped.');
       }
     };
     recognition.onend = () => setListening(false);
@@ -187,7 +199,7 @@ export function VoiceControl() {
   return (
     <>
       {(lastHeard || lastReply || pendingPreview) && (
-        <div className="voice-transcript-toast">
+        <div className="voice-transcript-toast" aria-live="polite" aria-atomic="true">
           {lastHeard && (
             <>
               <span className="label">You said</span>

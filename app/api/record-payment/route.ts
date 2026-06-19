@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DEMO_SHOP_ID, ensureDemoShop, getCustomerBalance, recordPayment } from '@/lib/db';
+import { formatRupees } from '@/lib/computed';
 import { apiErrorResponse } from '@/lib/api-errors';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,15 @@ export async function POST(req: NextRequest) {
     }
 
     const transaction = await recordPayment(DEMO_SHOP_ID, customer_name, amount);
-    return NextResponse.json({ transaction, customer_name: balanceInfo.name, amount });
+    const response: Record<string, unknown> = {
+      transaction,
+      customer_name: balanceInfo.name,
+      amount,
+    };
+    if (amount > balanceInfo.balance) {
+      response.warning = `Payment of ${formatRupees(amount)} exceeds balance of ${formatRupees(balanceInfo.balance)}.`;
+    }
+    return NextResponse.json(response);
   } catch (error) {
     return apiErrorResponse(error, 'Could not record payment.');
   }

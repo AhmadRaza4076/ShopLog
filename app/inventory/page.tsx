@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import InventoryProductModal from '@/components/InventoryProductModal';
+import { apiFetch } from '@/lib/api-fetch';
 import { formatQty, formatRupees } from '@/lib/computed';
 import { useInventory } from '@/lib/hooks/use-inventory';
 import type { InventoryRow } from '@/lib/types';
@@ -67,7 +68,7 @@ function InventoryContent() {
       : `Delete "${selectedRow.item_name}" from inventory?`;
     if (!window.confirm(msg)) return;
 
-    const res = await fetch(`/api/inventory/${encodeURIComponent(selectedRow.item_name)}`, {
+    const res = await apiFetch(`/api/inventory/${encodeURIComponent(selectedRow.item_name)}`, {
       method: 'DELETE',
     });
     const data = await res.json();

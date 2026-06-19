@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { NavTabs } from '@/components/NavTabs';
 import { VoiceControl } from '@/components/VoiceControl';
+import { WriteUnlock } from '@/components/WriteUnlock';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <WriteUnlock />
         <div className="app-shell">
           <aside className="sidebar">
             <p className="brand">ShopLog</p>

@@ -131,4 +131,6 @@ export interface SaleRow {
 export interface SaveTransactionOptions {
   sale_id?: string | null;
   sale_notes?: string | null;
+  knownNames?: string[];
+  skipShopItemUpsert?: boolean;
 }

@@ -3,6 +3,7 @@ import { parseReceiptImage } from '@/lib/claude';
 import { DEMO_SHOP_ID, ensureDemoShop, getAllTransactions, saveParsedTransaction } from '@/lib/db';
 import { stockWarningForParsed } from '@/lib/computed';
 import { apiErrorResponse } from '@/lib/api-errors';
+import { assertBase64UploadSize } from '@/lib/upload-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
     if (!image) {
       return NextResponse.json({ error: 'image (base64) is required' }, { status: 400 });
     }
+    assertBase64UploadSize(image, 'Image');
 
     const parsed = await parseReceiptImage(image, mediaType ?? 'image/jpeg', intent);
     const rawInput = parsed.note ? `[Photo receipt] ${parsed.note}` : '[Photo receipt]';

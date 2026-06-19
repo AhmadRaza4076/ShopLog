@@ -8,7 +8,8 @@
     "prebuild": "node scripts/ensure-not-dev.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -25,7 +26,10 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/uuid": "^9.0.8",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.6"
   }
 }

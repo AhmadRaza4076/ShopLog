@@ -3,7 +3,6 @@ import {
   DEMO_SHOP_ID,
   ensureDemoShop,
   getAllTransactions,
-  normalizeShopItemNames,
   saveSale,
 } from '@/lib/db';
 import { computeSalesGrouped } from '@/lib/computed';
@@ -15,7 +14,6 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     await ensureDemoShop();
-    await normalizeShopItemNames(DEMO_SHOP_ID);
     const transactions = await getAllTransactions(DEMO_SHOP_ID);
     const sales = computeSalesGrouped(transactions);
     return NextResponse.json({ sales });

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         note: 'Bulk inventory import',
       };
 
-      const txn = await saveParsedTransaction(DEMO_SHOP_ID, parsed, source, rawInput);
+      const txn = await saveParsedTransaction(DEMO_SHOP_ID, parsed, source, rawInput, { knownNames: known });
       transactions.push(txn);
     }
 

@@ -35,8 +35,11 @@ cp .env.example .env.local
 | `ANTHROPIC_API_KEY` | Hackathon organizers (LiteLLM key) |
 | `ANTHROPIC_BASE_URL` | `https://litellm.rapidscreen.io` |
 | `DATABASE_URL` | Neon dashboard → pooled connection string |
+| `SHOPLOG_WRITE_SECRET` | **Required on Vercel production.** Without it, all mutating API routes return 503. When set, POST/PATCH/DELETE require the unlock banner secret per session. |
 
 **Security:** `.env.local` is gitignored and must never be committed or pasted into GitHub/Discord. For Vercel, add the same variables in the project **Environment Variables** settings — never hardcode them in source files. If your database password was ever exposed, reset it in the Neon dashboard and update `DATABASE_URL`.
+
+On production, mutating API routes require the `x-shoplog-secret` header (set automatically after you unlock write access in the browser). Voice preview and all GET routes stay open.
 
 ## 3. Run locally
 
@@ -54,8 +57,9 @@ Add entries from the dashboard or import a stock list (paste, photo, PDF, or Wor
 1. Push this project to a GitHub repo.
 2. Import it at [vercel.com/new](https://vercel.com/new).
 3. In the project's Environment Variables settings, add `ANTHROPIC_API_KEY`,
-   `ANTHROPIC_BASE_URL`, and `DATABASE_URL` with your real values.
-4. Deploy. Production is live at [shop-log-five.vercel.app](https://shop-log-five.vercel.app) — pushes to `main` auto-deploy via Vercel.
+   `ANTHROPIC_BASE_URL`, `DATABASE_URL`, and `SHOPLOG_WRITE_SECRET` with your real values.
+4. Run `scripts/migrate-shop-items-unique.sql` once on Neon (case-insensitive product names).
+5. Deploy. Production is live at [shop-log-five.vercel.app](https://shop-log-five.vercel.app) — pushes to `main` auto-deploy via Vercel.
 
 ## Key features
 

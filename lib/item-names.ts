@@ -25,6 +25,7 @@ export function collectKnownItemNames(transactions: Transaction[]): string[] {
   return [...names];
 }
 
+/** Exact case-insensitive match or explicit alias only — no substring merging. */
 export function canonicalItemName(rawName: string, knownNames: string[]): string {
   const trimmed = rawName.trim();
   if (!trimmed) return trimmed;
@@ -37,22 +38,7 @@ export function canonicalItemName(rawName: string, knownNames: string[]): string
   const exact = knownNames.find((n) => norm(n) === q);
   if (exact) return exact;
 
-  const related = knownNames.filter((n) => {
-    const nl = norm(n);
-    return nl.includes(q) || q.includes(nl);
-  });
-
-  for (const [alias, canonical] of Object.entries(aliases)) {
-    if (q.includes(alias) || alias.includes(q)) return canonical;
-  }
-
-  if (related.length === 0) return trimmed;
-  if (related.length === 1) return related[0];
-
-  for (const canonical of Object.values(aliases)) {
-    if (related.includes(canonical)) return canonical;
-  }
-  return related.sort((a, b) => b.length - a.length)[0];
+  return trimmed;
 }
 
 export function itemNameClusters(names: string[]): Map<string, string> {
@@ -89,7 +75,7 @@ export function computeInventoryMerged(
 ): InventoryRow[] {
   const allNames = collectKnownItemNames(transactions);
   for (const item of catalog) {
-    if (item.item_name?.trim() && !allNames.includes(item.item_name.trim())) {
+    if (item.item_name?.trim() && !allNames.some((n) => norm(n) === norm(item.item_name))) {
       allNames.push(item.item_name.trim());
     }
   }
@@ -179,15 +165,4 @@ export function computeInventoryMerged(
       };
     })
     .sort((a, b) => a.item_name.localeCompare(b.item_name));
-}
-
-/** Rewrite legacy duplicate item_name values in the DB to canonical names. */
-export function buildItemNameFixes(transactions: Transaction[]): { from: string; to: string }[] {
-  const names = transactions.map((t) => t.item_name).filter((n): n is string => !!n?.trim());
-  const clusters = itemNameClusters([...new Set(names)]);
-  const fixes: { from: string; to: string }[] = [];
-  for (const [from, to] of clusters) {
-    if (from !== to) fixes.push({ from, to });
-  }
-  return fixes;
 }
