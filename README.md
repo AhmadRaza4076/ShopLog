@@ -1,5 +1,7 @@
 # Khaataa AI
 
+**Live demo:** [shop-log-five.vercel.app](https://shop-log-five.vercel.app) · **Repo:** [github.com/AhmadRaza4076/ShopLog](https://github.com/AhmadRaza4076/ShopLog)
+
 An AI bookkeeper for small shops. Type a line, say it out loud, or photograph
 a receipt — it all becomes real bookkeeping: live dashboard, automatic
 inventory, khaataa (customer credit) tracking with AI-drafted reminders, and
@@ -53,7 +55,7 @@ npm run dev
 2. Import it at [vercel.com/new](https://vercel.com/new).
 3. In the project's Environment Variables settings, add `ANTHROPIC_API_KEY`,
    `ANTHROPIC_BASE_URL`, and `DATABASE_URL` with your real values.
-4. Deploy. You'll get a public `yourproject.vercel.app` URL to submit.
+4. Deploy. Production is live at [shop-log-five.vercel.app](https://shop-log-five.vercel.app) — pushes to `main` auto-deploy via Vercel.
 
 ## Key features
 
