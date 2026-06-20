@@ -1,14 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { clearWriteSecret, setWriteSecret } from '@/lib/api-fetch';
+import { clearWriteSecret, getWriteSecret, setWriteSecret } from '@/lib/api-fetch';
+
+type GateReason = 'locked' | 'misconfigured';
 
 export function WriteUnlock() {
   const [visible, setVisible] = useState(false);
-  const [reason, setReason] = useState<'locked' | 'misconfigured'>('locked');
+  const [reason, setReason] = useState<GateReason>('locked');
   const [secret, setSecretInput] = useState('');
 
   useEffect(() => {
+    fetch('/api/write-gate/status')
+      .then((r) => r.json())
+      .then((data: { mode?: string }) => {
+        if (data.mode === 'misconfigured') {
+          setReason('misconfigured');
+          setVisible(true);
+        } else if (data.mode === 'locked' && !getWriteSecret()) {
+          setReason('locked');
+          setVisible(true);
+        }
+      })
+      .catch(() => {});
+
     const onLocked = (event: Event) => {
       const detail = (event as CustomEvent<{ reason?: string }>).detail;
       setReason(detail?.reason === 'misconfigured' ? 'misconfigured' : 'locked');
@@ -29,8 +44,8 @@ export function WriteUnlock() {
 
   const message =
     reason === 'misconfigured'
-      ? 'Writes are disabled on this server until SHOPLOG_WRITE_SECRET is configured.'
-      : 'Demo write access is locked.';
+      ? 'Writes are disabled — set SHOPLOG_WRITE_SECRET in Vercel, redeploy, then unlock here.'
+      : 'Enter the demo write secret to record sales, imports, and other changes.';
 
   return (
     <div
@@ -74,10 +89,7 @@ export function WriteUnlock() {
         type="button"
         className="btn-secondary"
         style={{ padding: '4px 12px' }}
-        onClick={() => {
-          clearWriteSecret();
-          setVisible(false);
-        }}
+        onClick={() => setVisible(false)}
       >
         Dismiss
       </button>
