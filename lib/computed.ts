@@ -197,9 +197,10 @@ export function computeCustomerBalances(transactions: Transaction[]): Record<str
 
 export function computeInventory(
   transactions: Transaction[],
-  catalog: ShopItem[] = []
+  catalog: ShopItem[] = [],
+  hiddenKeys?: Set<string>
 ): InventoryRow[] {
-  return computeInventoryMerged(transactions, catalog);
+  return computeInventoryMerged(transactions, catalog, hiddenKeys);
 }
 
 /** Project on-hand qty for an item after applying a hypothetical sale/purchase. */

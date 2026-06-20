@@ -4,6 +4,7 @@ import {
   createShopItem,
   ensureDemoShop,
   getAllTransactions,
+  getHiddenCatalogKeys,
   getShopItems,
   saveParsedTransaction,
 } from '@/lib/db';
@@ -16,11 +17,12 @@ export const dynamic = 'force-dynamic';
 
 async function loadInventory() {
   await ensureDemoShop();
-  const [transactions, catalog] = await Promise.all([
+  const [transactions, catalog, hiddenKeys] = await Promise.all([
     getAllTransactions(DEMO_SHOP_ID),
     getShopItems(DEMO_SHOP_ID),
+    getHiddenCatalogKeys(DEMO_SHOP_ID),
   ]);
-  return computeInventory(transactions, catalog);
+  return computeInventory(transactions, catalog, hiddenKeys);
 }
 
 export async function GET() {

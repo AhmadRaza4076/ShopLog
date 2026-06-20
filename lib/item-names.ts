@@ -71,7 +71,8 @@ interface MutableRow {
 
 export function computeInventoryMerged(
   transactions: Transaction[],
-  catalog: ShopItem[] = []
+  catalog: ShopItem[] = [],
+  hiddenKeys?: Set<string>
 ): InventoryRow[] {
   const allNames = collectKnownItemNames(transactions);
   for (const item of catalog) {
@@ -164,5 +165,6 @@ export function computeInventoryMerged(
         has_transaction_history: row.has_transaction_history,
       };
     })
+    .filter((row) => !hiddenKeys?.has(norm(row.item_name)))
     .sort((a, b) => a.item_name.localeCompare(b.item_name));
 }

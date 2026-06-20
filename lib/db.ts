@@ -16,7 +16,7 @@ import {
   collectKnownItemNames,
   itemNameClusters,
 } from './item-names';
-import { computeSalesGrouped, normalizeParsedTransaction, STOCK_ADJUSTMENT_MARKER } from './computed';
+import { computeSalesGrouped, computeCustomerBalances, normalizeParsedTransaction, STOCK_ADJUSTMENT_MARKER } from './computed';
 import { findCustomers } from './voice-lookup';
 import { assertValidParsedTransaction } from './validate-transaction';
 
@@ -223,9 +223,11 @@ export async function countCustomerTransactions(shopId: string, customerId: stri
 }
 
 export async function deleteCustomer(shopId: string, customerId: string): Promise<void> {
-  const txnCount = await countCustomerTransactions(shopId, customerId);
-  if (txnCount > 0) {
-    throw new Error('Cannot delete — customer has ledger history. Safe delete only.');
+  const transactions = await getAllTransactions(shopId);
+  const balances = computeCustomerBalances(transactions);
+  const balance = balances[customerId]?.balance ?? 0;
+  if (balance > 0) {
+    throw new Error('Cannot delete — customer still owes money. Record payment first.');
   }
 
   const db = sql();
@@ -481,6 +483,7 @@ export async function createShopItem(
     )
     returning *
   `;
+  await clearHiddenCatalogItem(shopId, name);
   return mapShopItem(rows[0] as Record<string, unknown>);
 }
 
@@ -526,7 +529,37 @@ export async function deleteShopItem(shopId: string, itemName: string): Promise<
   const db = sql();
   await db`
     delete from shop_items
-    where shop_id = ${shopId} and item_name = ${itemName.trim()}
+    where shop_id = ${shopId} and lower(item_name) = lower(${itemName.trim()})
+  `;
+  await hideCatalogItem(shopId, itemName);
+}
+
+function catalogItemKey(itemName: string): string {
+  return itemName.trim().toLowerCase();
+}
+
+export async function getHiddenCatalogKeys(shopId: string): Promise<Set<string>> {
+  const db = sql();
+  const rows = await db`
+    select item_name_key from catalog_hidden_items where shop_id = ${shopId}
+  `;
+  return new Set((rows as { item_name_key: string }[]).map((r) => r.item_name_key));
+}
+
+export async function hideCatalogItem(shopId: string, itemName: string): Promise<void> {
+  const db = sql();
+  await db`
+    insert into catalog_hidden_items (shop_id, item_name_key)
+    values (${shopId}, ${catalogItemKey(itemName)})
+    on conflict (shop_id, item_name_key) do nothing
+  `;
+}
+
+export async function clearHiddenCatalogItem(shopId: string, itemName: string): Promise<void> {
+  const db = sql();
+  await db`
+    delete from catalog_hidden_items
+    where shop_id = ${shopId} and item_name_key = ${catalogItemKey(itemName)}
   `;
 }
 

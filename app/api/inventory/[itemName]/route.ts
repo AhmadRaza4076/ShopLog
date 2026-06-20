@@ -5,6 +5,7 @@ import {
   deleteShopItem,
   ensureDemoShop,
   getAllTransactions,
+  getHiddenCatalogKeys,
   getShopItems,
   saveParsedTransaction,
   updateShopItem,
@@ -19,11 +20,12 @@ export const dynamic = 'force-dynamic';
 type RouteContext = { params: { itemName: string } };
 
 async function loadInventory() {
-  const [transactions, catalog] = await Promise.all([
+  const [transactions, catalog, hiddenKeys] = await Promise.all([
     getAllTransactions(DEMO_SHOP_ID),
     getShopItems(DEMO_SHOP_ID),
+    getHiddenCatalogKeys(DEMO_SHOP_ID),
   ]);
-  return computeInventory(transactions, catalog);
+  return computeInventory(transactions, catalog, hiddenKeys);
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {

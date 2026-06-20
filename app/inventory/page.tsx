@@ -63,9 +63,7 @@ function InventoryContent() {
 
   const handleDelete = async () => {
     if (!selectedRow) return;
-    const msg = selectedRow.has_transaction_history
-      ? `"${selectedRow.item_name}" has purchase/sale history in the ledger. Remove catalog entry only? Stock qty from past transactions will remain.`
-      : `Delete "${selectedRow.item_name}" from inventory?`;
+    const msg = `Remove "${selectedRow.item_name}" from inventory? Past sales and purchases stay in the ledger.`;
     if (!window.confirm(msg)) return;
 
     const res = await apiFetch(`/api/inventory/${encodeURIComponent(selectedRow.item_name)}`, {
@@ -78,6 +76,7 @@ function InventoryContent() {
     }
     setSelected(null);
     setItems(data.items ?? []);
+    alert('Removed from inventory catalog. Past sales/purchases stay in the ledger.');
   };
 
   if (loadError) {

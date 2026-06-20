@@ -140,7 +140,7 @@ function KhaataaContent() {
     if (!selected) return;
     if (
       !window.confirm(
-        `Delete "${selected.name}"? Only allowed if they have no ledger history and zero balance.`
+        `Delete "${selected.name}"? Only allowed when their balance is zero.`
       )
     ) {
       return;
@@ -225,10 +225,10 @@ function KhaataaContent() {
         <button
           type="button"
           className="btn-secondary inv-btn-delete"
-          disabled={!selected}
+          disabled={!selected || (selected?.balance ?? 0) > 0}
           onClick={handleDelete}
         >
-          Delete (safe only)
+          Delete
         </button>
         <button
           type="button"

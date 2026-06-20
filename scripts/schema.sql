@@ -58,3 +58,10 @@ create index if not exists idx_transactions_sale on transactions(shop_id, sale_i
 create index if not exists idx_transactions_customer on transactions(customer_id);
 create index if not exists idx_customers_shop on customers(shop_id);
 create index if not exists idx_shop_items_shop on shop_items(shop_id);
+
+create table if not exists catalog_hidden_items (
+  shop_id       uuid not null references shops(id) on delete cascade,
+  item_name_key text not null,
+  hidden_at     timestamptz not null default now(),
+  primary key (shop_id, item_name_key)
+);
