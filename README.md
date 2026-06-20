@@ -35,11 +35,11 @@ cp .env.example .env.local
 | `ANTHROPIC_API_KEY` | Hackathon organizers (LiteLLM key) |
 | `ANTHROPIC_BASE_URL` | `https://litellm.rapidscreen.io` |
 | `DATABASE_URL` | Neon dashboard → pooled connection string |
-| `SHOPLOG_WRITE_SECRET` | Optional on Vercel. When unset, production uses the public demo password `shoplog-demo-unlock` (see unlock banner). Set a custom value to override. |
+| `SHOPLOG_WRITE_SECRET` | Optional. When set on Vercel, POST/PATCH/DELETE API routes require this secret in the unlock banner. **Leave unset for the public hackathon demo** (writes are open). |
 
 **Security:** `.env.local` is gitignored and must never be committed or pasted into GitHub/Discord. For Vercel, add the same variables in the project **Environment Variables** settings — never hardcode them in source files. If your database password was ever exposed, reset it in the Neon dashboard and update `DATABASE_URL`.
 
-On production, mutating API routes require the `x-shoplog-secret` header. Click **Use demo password** in the unlock banner, or enter `shoplog-demo-unlock` (unless you set a custom `SHOPLOG_WRITE_SECRET` on Vercel).
+The public demo at shop-log-five.vercel.app does **not** require a write password unless you add `SHOPLOG_WRITE_SECRET`. Anyone can mutate the shared demo database while the site is public — acceptable for a short hackathon window.
 
 ## 3. Run locally
 

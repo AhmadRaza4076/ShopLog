@@ -1,6 +1,6 @@
 export const WRITE_HEADER = 'x-shoplog-secret';
 
-/** Default unlock for public demo when SHOPLOG_WRITE_SECRET is not set on Vercel. */
+/** Legacy demo password — only used if UI still offers manual unlock when a custom secret is set. */
 export const DEMO_WRITE_SECRET = 'shoplog-demo-unlock';
 
 const PREVIEW_EXEMPT = '/api/voice-command/preview';
@@ -9,11 +9,9 @@ export function isProductionRuntime(): boolean {
   return process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 }
 
-export function resolveWriteSecret(envSecret: string | undefined, isProduction: boolean): string | undefined {
+export function resolveWriteSecret(envSecret: string | undefined, _isProduction: boolean): string | undefined {
   const trimmed = envSecret?.trim();
-  if (trimmed) return trimmed;
-  if (isProduction) return DEMO_WRITE_SECRET;
-  return undefined;
+  return trimmed || undefined;
 }
 
 export function isMutatingApiMethod(method: string): boolean {
@@ -59,11 +57,11 @@ export function evaluateWriteGate(input: {
 
 export type WriteGateMode = 'open' | 'locked';
 
-export function getWriteGateMode(envSecret: string | undefined, isProduction: boolean): WriteGateMode {
-  if (!isProduction && !envSecret?.trim()) return 'open';
+export function getWriteGateMode(envSecret: string | undefined, _isProduction: boolean): WriteGateMode {
+  if (!envSecret?.trim()) return 'open';
   return 'locked';
 }
 
-export function usesDemoWriteSecret(envSecret: string | undefined, isProduction: boolean): boolean {
-  return isProduction && !envSecret?.trim();
+export function usesDemoWriteSecret(_envSecret: string | undefined, _isProduction: boolean): boolean {
+  return false;
 }

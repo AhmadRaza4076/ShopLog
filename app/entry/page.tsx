@@ -244,7 +244,7 @@ function EntryContent() {
         setLoading(false);
         return;
       }
-      const res = await fetch('/api/parse-inventory-sheet', {
+      const res = await apiFetch('/api/parse-inventory-sheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
