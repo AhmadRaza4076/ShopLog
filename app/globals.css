@@ -448,6 +448,21 @@ button {
   margin-bottom: 4px;
 }
 
+.voice-transcript-toast .btn-secondary {
+  color: var(--paper);
+  border-color: rgba(231, 218, 184, 0.5);
+}
+
+.voice-transcript-toast .btn-secondary:hover:not(:disabled) {
+  border-color: var(--brass);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.voice-transcript-toast .btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ---------- Empty state ---------- */
 
 .empty-state {
