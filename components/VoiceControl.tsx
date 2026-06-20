@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-fetch';
-import type { SpeechRecognitionLike } from '@/lib/speech';
+import { speakEnglishText, VOICE_LANG, type SpeechRecognitionLike } from '@/lib/speech';
 import type { VoiceActionPayload } from '@/lib/voice-preview';
 
 export const VOICE_REFRESH_EVENT = 'khaataa:refresh';
@@ -34,6 +34,14 @@ export function VoiceControl() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.getVoices();
+    const onVoices = () => window.speechSynthesis.getVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', onVoices);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
+  }, []);
+
+  useEffect(() => {
     if (pendingPreview) return;
     if (!lastHeard && !lastReply) return;
     const timer = window.setTimeout(() => {
@@ -62,9 +70,8 @@ export function VoiceControl() {
         router.push(`/${data.navigate}${qs ? `?${qs}` : ''}`);
       }
 
-      if ('speechSynthesis' in window && data.speech) {
-        const utterance = new SpeechSynthesisUtterance(data.speech);
-        window.speechSynthesis.speak(utterance);
+      if (data.speech) {
+        speakEnglishText(data.speech);
       }
     },
     [router]
@@ -107,7 +114,7 @@ export function VoiceControl() {
       return;
     }
     const recognition = new Ctor();
-    recognition.lang = 'ur-PK';
+    recognition.lang = VOICE_LANG;
     recognition.continuous = false;
     recognition.interimResults = false;
 
@@ -148,8 +155,8 @@ export function VoiceControl() {
       setListening(false);
       const err = (event as Event & { error?: string }).error;
       if (err === 'language-not-supported') {
-        recognition.lang = 'en-PK';
-        setLastReply('Urdu voice not supported in this browser — using English (Pakistan).');
+        recognition.lang = 'en-GB';
+        setLastReply('English voice not supported in this browser — try Chrome or Edge.');
         return;
       }
       if (err === 'not-allowed') {
@@ -233,7 +240,7 @@ export function VoiceControl() {
       )}
       {!lastHeard && !lastReply && !pendingPreview && !listening && (
         <p className="voice-hint" aria-hidden>
-          Try: &ldquo;Ali kitna baqi hai?&rdquo;
+          Try: &ldquo;How much does Ali owe?&rdquo;
         </p>
       )}
       <button

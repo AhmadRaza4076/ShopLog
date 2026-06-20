@@ -39,12 +39,12 @@ Rules:
 const VOICE_TOOL_GUIDANCE = `
 Tool selection rules (pick exactly ONE tool):
 - "open / go to / show" a screen → navigate_to (optional query for search on inventory or khaataa)
-- "how much / kitna / stock of X" → lookup_inventory
+- "how much / stock of X" → lookup_inventory
 - "what's in stock / list inventory" → list_inventory
-- "find / search / dhoondo" a customer → lookup_customer
+- "find / search" a customer → lookup_customer
 - "how much does X owe" → get_balance
-- "aaj kitna munafa / profit today / margin today" → get_today_profit
-- "Ali ka score / credit rating / credit score" → get_credit_score
+- "profit today / today's profit / margin today" → get_today_profit
+- "credit score / credit rating for X" → get_credit_score
 - "add X bags/units to inventory / stock in / bought stock" → add_stock (NOT add_transaction)
 - "set X to N bags / I have N X now / update stock to N" → set_stock
 - "add customer / register X phone …" → add_customer
@@ -90,8 +90,8 @@ async function voiceSystemPrompt(): Promise<string> {
   return (
     context +
     "You control a small shop's bookkeeping app by mapping the shopkeeper's spoken command to exactly " +
-    "one tool call. Commands may mix English, Urdu, and Roman-Urdu. If the command is too ambiguous to " +
-    'act on safely, call no tool and explain why in plain text instead.' +
+    'one tool call. Commands are in English. If the command is too ambiguous to act on safely, call no tool ' +
+    'and explain why in plain English (for text-to-speech readout — never use Urdu script).' +
     VOICE_TOOL_GUIDANCE
   );
 }

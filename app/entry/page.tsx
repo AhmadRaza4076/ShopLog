@@ -8,7 +8,7 @@ import { apiFetch } from '@/lib/api-fetch';
 import type { EntryIntent, InventorySheetRow, ParsedTransaction, Transaction } from '@/lib/types';
 import { formatRupees } from '@/lib/computed';
 import { resizeAndEncode } from '@/lib/photo-utils';
-import type { SpeechRecognitionLike } from '@/lib/speech';
+import { VOICE_LANG, type SpeechRecognitionLike } from '@/lib/speech';
 import { MAX_UPLOAD_BYTES } from '@/lib/upload-limits';
 
 type InputMode = 'type' | 'voice' | 'photo';
@@ -113,7 +113,7 @@ function EntryContent() {
       return;
     }
     const recognition = new Ctor() as SpeechRecognitionLike;
-    recognition.lang = 'en-PK';
+    recognition.lang = VOICE_LANG;
     recognition.onresult = (event) => {
       setText(event.results[0][0].transcript);
     };

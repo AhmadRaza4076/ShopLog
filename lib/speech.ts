@@ -29,3 +29,27 @@ declare global {
     webkitSpeechRecognition?: new () => SpeechRecognitionLike;
   }
 }
+
+/** BCP-47 tag for hackathon demo — English recognition and readout. */
+export const VOICE_LANG = 'en-US';
+
+export function pickEnglishVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  return (
+    voices.find((v) => v.lang === VOICE_LANG) ??
+    voices.find((v) => v.lang.startsWith('en') && v.localService) ??
+    voices.find((v) => v.lang.startsWith('en')) ??
+    null
+  );
+}
+
+export function speakEnglishText(text: string): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = VOICE_LANG;
+  const voice = pickEnglishVoice();
+  if (voice) utterance.voice = voice;
+  window.speechSynthesis.speak(utterance);
+}

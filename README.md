@@ -63,16 +63,16 @@ Add entries from the dashboard or import a stock list (paste, photo, PDF, or Wor
 
 ## Key features
 
-- **Today's profit** — dashboard shows gross margin from today's sales using buy/sell prices already in `shop_items` and transaction rows (`lib/computed.ts` → `computeProfitSummary`). Ask by voice: *"aaj kitna munafa hua?"*
-- **Credit readiness score** — per-customer 0–100 score with explainable factors on the Credit screen (`lib/scoring.ts`). Ask by voice: *"Ali ka credit score kya hai?"*
-- **WhatsApp reminders** — AI drafts a polite Urdu/English reminder; copy or tap **Send on WhatsApp** to open `wa.me` with the customer's phone (`lib/whatsapp.ts`).
+- **Today's profit** — dashboard shows gross margin from today's sales using buy/sell prices already in `shop_items` and transaction rows (`lib/computed.ts` → `computeProfitSummary`). Ask by voice: *"What was today's profit?"*
+- **Credit readiness score** — per-customer 0–100 score with explainable factors on the Credit screen (`lib/scoring.ts`). Ask by voice: *"What is Ali's credit score?"*
+- **WhatsApp reminders** — AI drafts a polite English reminder; copy or tap **Send on WhatsApp** to open `wa.me` with the customer's phone (`lib/whatsapp.ts`).
 
 ## Demo script (3 minutes)
 
 1. **Dashboard** — point at *Today's profit* and *Total owed*
 2. **Entry** — Type or say a credit sale → inventory and credit balance update
 3. **Credit** — Select a customer → credit score + factors → Draft reminder → **Send on WhatsApp**
-4. **Voice** — *"aaj kitna munafa hua?"* and *"Ali kitna baqi hai?"*
+4. **Voice** — *"What was today's profit?"* and *"How much does Ali owe?"*
 
 ## How it's organized
 
@@ -94,9 +94,3 @@ transaction, mark a payment, check a balance, check a score, send a
 reminder) and Claude decides which action applies — `/api/voice-command`
 executes whatever it decides.
 
-## A note on cost
-
-Realistically $0–5 total for a hackathon-scale build, covered by the free
-signup credit. Text parsing uses the cheaper Haiku model; only receipt-photo
-parsing and the voice agent use the stronger (and pricier) Sonnet model,
-since those are the two places accuracy matters more than cost.
