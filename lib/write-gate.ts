@@ -1,9 +1,19 @@
 export const WRITE_HEADER = 'x-shoplog-secret';
 
+/** Default unlock for public demo when SHOPLOG_WRITE_SECRET is not set on Vercel. */
+export const DEMO_WRITE_SECRET = 'shoplog-demo-unlock';
+
 const PREVIEW_EXEMPT = '/api/voice-command/preview';
 
 export function isProductionRuntime(): boolean {
   return process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+}
+
+export function resolveWriteSecret(envSecret: string | undefined, isProduction: boolean): string | undefined {
+  const trimmed = envSecret?.trim();
+  if (trimmed) return trimmed;
+  if (isProduction) return DEMO_WRITE_SECRET;
+  return undefined;
 }
 
 export function isMutatingApiMethod(method: string): boolean {
@@ -17,8 +27,7 @@ export function isWriteGateExemptPath(pathname: string): boolean {
 
 export type WriteGateOutcome =
   | { action: 'allow' }
-  | { action: 'deny'; status: 401; error: string }
-  | { action: 'deny'; status: 503; error: string };
+  | { action: 'deny'; status: 401; error: string };
 
 /** Pure write-gate decision — used by middleware and unit tests. */
 export function evaluateWriteGate(input: {
@@ -34,18 +43,10 @@ export function evaluateWriteGate(input: {
   if (!isMutatingApiMethod(method)) return { action: 'allow' };
   if (isWriteGateExemptPath(pathname)) return { action: 'allow' };
 
-  if (!secret?.trim()) {
-    if (isProduction) {
-      return {
-        action: 'deny',
-        status: 503,
-        error: 'Write access is disabled — server is missing SHOPLOG_WRITE_SECRET.',
-      };
-    }
-    return { action: 'allow' };
-  }
+  const effectiveSecret = resolveWriteSecret(secret, isProduction);
+  if (!effectiveSecret) return { action: 'allow' };
 
-  if (providedHeader !== secret) {
+  if (providedHeader !== effectiveSecret) {
     return {
       action: 'deny',
       status: 401,
@@ -54,4 +55,15 @@ export function evaluateWriteGate(input: {
   }
 
   return { action: 'allow' };
+}
+
+export type WriteGateMode = 'open' | 'locked';
+
+export function getWriteGateMode(envSecret: string | undefined, isProduction: boolean): WriteGateMode {
+  if (!isProduction && !envSecret?.trim()) return 'open';
+  return 'locked';
+}
+
+export function usesDemoWriteSecret(envSecret: string | undefined, isProduction: boolean): boolean {
+  return isProduction && !envSecret?.trim();
 }

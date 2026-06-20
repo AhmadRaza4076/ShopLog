@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateWriteGate } from './write-gate';
+import { DEMO_WRITE_SECRET, evaluateWriteGate, getWriteGateMode } from './write-gate';
 
 describe('evaluateWriteGate', () => {
   it('allows local dev writes when secret is unset', () => {
@@ -13,19 +13,28 @@ describe('evaluateWriteGate', () => {
     expect(result.action).toBe('allow');
   });
 
-  it('blocks production writes when secret is unset (fail closed)', () => {
-    const result = evaluateWriteGate({
+  it('requires demo secret in production when env secret is unset', () => {
+    const denied = evaluateWriteGate({
       pathname: '/api/seed',
       method: 'POST',
       secret: undefined,
       providedHeader: null,
       isProduction: true,
     });
-    expect(result.action).toBe('deny');
-    if (result.action === 'deny') expect(result.status).toBe(503);
+    expect(denied.action).toBe('deny');
+    if (denied.action === 'deny') expect(denied.status).toBe(401);
+
+    const allowed = evaluateWriteGate({
+      pathname: '/api/seed',
+      method: 'POST',
+      secret: undefined,
+      providedHeader: DEMO_WRITE_SECRET,
+      isProduction: true,
+    });
+    expect(allowed.action).toBe('allow');
   });
 
-  it('requires header when secret is configured', () => {
+  it('requires header when custom secret is configured', () => {
     const denied = evaluateWriteGate({
       pathname: '/api/transactions',
       method: 'POST',
@@ -55,5 +64,10 @@ describe('evaluateWriteGate', () => {
       isProduction: true,
     });
     expect(result.action).toBe('allow');
+  });
+
+  it('reports locked mode on production even without env secret', () => {
+    expect(getWriteGateMode(undefined, true)).toBe('locked');
+    expect(getWriteGateMode(undefined, false)).toBe('open');
   });
 });

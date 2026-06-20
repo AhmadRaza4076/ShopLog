@@ -1,34 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { clearWriteSecret, getWriteSecret, setWriteSecret } from '@/lib/api-fetch';
-
-type GateReason = 'locked' | 'misconfigured';
+import { DEMO_WRITE_SECRET } from '@/lib/write-gate';
+import { getWriteSecret, setWriteSecret } from '@/lib/api-fetch';
 
 export function WriteUnlock() {
   const [visible, setVisible] = useState(false);
-  const [reason, setReason] = useState<GateReason>('locked');
+  const [usesDemoDefault, setUsesDemoDefault] = useState(false);
   const [secret, setSecretInput] = useState('');
 
   useEffect(() => {
     fetch('/api/write-gate/status')
       .then((r) => r.json())
-      .then((data: { mode?: string }) => {
-        if (data.mode === 'misconfigured') {
-          setReason('misconfigured');
-          setVisible(true);
-        } else if (data.mode === 'locked' && !getWriteSecret()) {
-          setReason('locked');
+      .then((data: { mode?: string; demo_default?: boolean }) => {
+        if (data.mode === 'locked' && !getWriteSecret()) {
+          setUsesDemoDefault(Boolean(data.demo_default));
           setVisible(true);
         }
       })
       .catch(() => {});
 
-    const onLocked = (event: Event) => {
-      const detail = (event as CustomEvent<{ reason?: string }>).detail;
-      setReason(detail?.reason === 'misconfigured' ? 'misconfigured' : 'locked');
-      setVisible(true);
-    };
+    const onLocked = () => setVisible(true);
     window.addEventListener('shoplog:write-locked', onLocked);
     return () => window.removeEventListener('shoplog:write-locked', onLocked);
   }, []);
@@ -42,10 +34,14 @@ export function WriteUnlock() {
     setSecretInput('');
   };
 
-  const message =
-    reason === 'misconfigured'
-      ? 'Writes are disabled — set SHOPLOG_WRITE_SECRET in Vercel, redeploy, then unlock here.'
-      : 'Enter the demo write secret to record sales, imports, and other changes.';
+  const useDemoDefault = () => {
+    setWriteSecret(DEMO_WRITE_SECRET);
+    setVisible(false);
+  };
+
+  const message = usesDemoDefault
+    ? 'Demo write access is locked. Use the default demo password or set SHOPLOG_WRITE_SECRET on Vercel.'
+    : 'Enter the write secret to record sales, imports, and other changes.';
 
   return (
     <div
@@ -69,28 +65,24 @@ export function WriteUnlock() {
       }}
     >
       <span>{message}</span>
-      {reason === 'locked' && (
-        <>
-          <input
-            type="password"
-            value={secret}
-            onChange={(e) => setSecretInput(e.target.value)}
-            placeholder="Enter write secret"
-            aria-label="Write secret"
-            style={{ padding: '4px 8px', minWidth: 180 }}
-            onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
-          />
-          <button type="button" className="btn-primary" style={{ padding: '4px 12px' }} onClick={handleUnlock}>
-            Unlock
-          </button>
-        </>
+      <input
+        type="password"
+        value={secret}
+        onChange={(e) => setSecretInput(e.target.value)}
+        placeholder="Enter write secret"
+        aria-label="Write secret"
+        style={{ padding: '4px 8px', minWidth: 180 }}
+        onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+      />
+      <button type="button" className="btn-primary" style={{ padding: '4px 12px' }} onClick={handleUnlock}>
+        Unlock
+      </button>
+      {usesDemoDefault && (
+        <button type="button" className="btn-secondary" style={{ padding: '4px 12px' }} onClick={useDemoDefault}>
+          Use demo password
+        </button>
       )}
-      <button
-        type="button"
-        className="btn-secondary"
-        style={{ padding: '4px 12px' }}
-        onClick={() => setVisible(false)}
-      >
+      <button type="button" className="btn-secondary" style={{ padding: '4px 12px' }} onClick={() => setVisible(false)}>
         Dismiss
       </button>
     </div>
