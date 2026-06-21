@@ -67,12 +67,7 @@ Add entries from the dashboard or import a stock list (paste, photo, PDF, or Wor
 - **Credit readiness score** — per-customer 0–100 score with explainable factors on the Credit screen (`lib/scoring.ts`). Ask by voice: *"What is Ali's credit score?"*
 - **WhatsApp reminders** — AI drafts a polite English reminder; copy or tap **Send on WhatsApp** to open `wa.me` with the customer's phone (`lib/whatsapp.ts`).
 
-## Demo script (3 minutes)
 
-1. **Dashboard** — point at *Today's profit* and *Total owed*
-2. **Entry** — Type or say a credit sale → inventory and credit balance update
-3. **Credit** — Select a customer → credit score + factors → Draft reminder → **Send on WhatsApp**
-4. **Voice** — *"What was today's profit?"* and *"How much does Ali owe?"*
 
 ## How it's organized
 
