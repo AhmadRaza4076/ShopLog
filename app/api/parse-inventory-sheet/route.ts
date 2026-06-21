@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
       assertBase64UploadSize(body.document, 'Document');
       const buffer = Buffer.from(body.document, 'base64');
       const text = await extractTextFromDocument(buffer, body.documentMimeType);
+      // #region agent log
+      fetch('http://127.0.0.1:7529/ingest/2b3e9191-6f23-4f1c-9132-c4bd485c14ab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ca096'},body:JSON.stringify({sessionId:'4ca096',location:'parse-inventory-sheet/route.ts:document',message:'PDF/doc text extracted',data:{mime:body.documentMimeType,textLen:text.length,preview:text.slice(0,80)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       assertTextLength(text, 'Extracted document text');
       const rows = await parseInventorySheetText(text);
       return NextResponse.json({ rows: sanitizeRows(rows) });
@@ -47,6 +50,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: 'text, image, or document is required' }, { status: 400 });
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7529/ingest/2b3e9191-6f23-4f1c-9132-c4bd485c14ab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ca096'},body:JSON.stringify({sessionId:'4ca096',location:'parse-inventory-sheet/route.ts:error',message:'Bulk parse failed',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     return apiErrorResponse(error, 'Could not read that inventory list.');
   }
 }

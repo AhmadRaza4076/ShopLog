@@ -14,6 +14,7 @@ function isRecognizedClientError(message: string): boolean {
     message.includes('key_model_access_denied') ||
     message.includes('key not allowed to access model') ||
     (message.includes('403') && message.includes('model')) ||
+    message.includes('Could not determine a price') ||
     message.includes('required') ||
     message.includes('must be') ||
     message.includes('not found') ||

@@ -126,6 +126,17 @@ export function enrichParsedTransactionAmounts(
   return parsed;
 }
 
+/** Align API parsed payload with what was actually saved (after enrich/normalize). */
+export function parsedForResponse(parsed: ParsedTransaction, transaction: Transaction): ParsedTransaction {
+  return {
+    ...parsed,
+    item_name: transaction.item_name ?? parsed.item_name,
+    quantity: transaction.quantity != null ? Number(transaction.quantity) : parsed.quantity,
+    unit_price: transaction.unit_price != null ? Number(transaction.unit_price) : parsed.unit_price,
+    total_amount: Number(transaction.total_amount),
+  };
+}
+
 /** Default shop timezone offset in minutes (PKT = UTC+5). Override via SHOP_TZ_OFFSET_MINUTES. */
 function shopTzOffsetMinutes(): number {
   const raw = process.env.SHOP_TZ_OFFSET_MINUTES;

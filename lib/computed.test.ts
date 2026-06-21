@@ -5,6 +5,7 @@ import {
   enrichParsedTransactionAmounts,
   isRealSale,
   isStockAdjustment,
+  parsedForResponse,
   STOCK_ADJUSTMENT_MARKER,
 } from './computed';
 import type { ParsedTransaction, ShopItem, Transaction } from './types';
@@ -107,5 +108,29 @@ describe('enrichParsedTransactionAmounts', () => {
     const enriched = enrichParsedTransactionAmounts(parsed, { catalog: cementCatalog });
     expect(enriched.unit_price).toBe(1100);
     expect(enriched.total_amount).toBe(2200);
+  });
+
+  it('parsedForResponse reflects saved transaction amounts', () => {
+    const parsed: ParsedTransaction = {
+      type: 'sale',
+      item_name: 'cement',
+      quantity: 2,
+      unit_price: null,
+      total_amount: 0,
+      customer_name: null,
+      is_credit: false,
+      confidence: 'low',
+    };
+    const transaction = txn({
+      type: 'sale',
+      item_name: 'Cement (bag)',
+      quantity: 2,
+      unit_price: 250,
+      total_amount: 500,
+    });
+    const shown = parsedForResponse(parsed, transaction);
+    expect(shown.total_amount).toBe(500);
+    expect(shown.unit_price).toBe(250);
+    expect(shown.item_name).toBe('Cement (bag)');
   });
 });

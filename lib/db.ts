@@ -55,15 +55,19 @@ export function sql(): NeonQueryFunction<false, false> {
 let demoShopReady = false;
 
 export async function ensureDemoShop() {
-  if (demoShopReady) return;
   const db = sql();
-  await db`
-    insert into shops (id, name, owner_name)
-    values (${DEMO_SHOP_ID}, ${DEMO_SHOP_NAME}, ${DEMO_OWNER_NAME})
-    on conflict (id) do nothing
-  `;
+  if (!demoShopReady) {
+    await db`
+      insert into shops (id, name, owner_name)
+      values (${DEMO_SHOP_ID}, ${DEMO_SHOP_NAME}, ${DEMO_OWNER_NAME})
+      on conflict (id) do nothing
+    `;
+    demoShopReady = true;
+  }
   await ensureAliasCatalogItems(DEMO_SHOP_ID);
-  demoShopReady = true;
+  // #region agent log
+  fetch('http://127.0.0.1:7529/ingest/2b3e9191-6f23-4f1c-9132-c4bd485c14ab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ca096'},body:JSON.stringify({sessionId:'4ca096',location:'db.ts:ensureDemoShop',message:'Demo shop ensured with alias catalog',data:{shopId:DEMO_SHOP_ID},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
 }
 
 const ALIAS_CATALOG_DEFAULTS: ShopItemInput[] = [
@@ -281,6 +285,9 @@ export async function saveParsedTransaction(
     transactions: existing ?? undefined,
     knownNames,
   });
+  // #region agent log
+  fetch('http://127.0.0.1:7529/ingest/2b3e9191-6f23-4f1c-9132-c4bd485c14ab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ca096'},body:JSON.stringify({sessionId:'4ca096',location:'db.ts:saveParsedTransaction',message:'Enrich amounts',data:{type:parsed.type,item:parsed.item_name,inTotal:parsed.total_amount,inQty:parsed.quantity,outTotal:enriched.total_amount,outUnit:enriched.unit_price,catalogCount:catalog.length,hasCement:catalog.some(c=>c.item_name.toLowerCase().includes('cement'))},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
 
   let normalized: ParsedTransaction;
   try {

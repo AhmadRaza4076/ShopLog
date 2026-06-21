@@ -112,18 +112,25 @@ function EntryContent() {
       setError('Voice dictation needs Chrome or Edge.');
       return;
     }
+    let transcript = '';
     const recognition = new Ctor() as SpeechRecognitionLike;
     recognition.lang = VOICE_LANG;
     recognition.onresult = (event) => {
-      setText(event.results[0][0].transcript);
+      transcript = event.results[0][0].transcript;
+      setText(transcript);
     };
-    recognition.onend = () => setListening(false);
+    recognition.onend = () => {
+      setListening(false);
+      if (transcript.trim()) {
+        void submitTextEntry(transcript, 'voice');
+      }
+    };
     setListening(true);
     recognition.start();
   };
 
-  const handleSubmitText = async () => {
-      if (!text.trim()) return;
+  const submitTextEntry = async (entryText: string, source: 'typed' | 'voice') => {
+    if (!entryText.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -132,8 +139,8 @@ function EntryContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
-          source: inputMode === 'voice' ? 'voice' : 'typed',
+          text: entryText,
+          source,
           intent,
         }),
       });
@@ -147,6 +154,10 @@ function EntryContent() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmitText = async () => {
+    await submitTextEntry(text, inputMode === 'voice' ? 'voice' : 'typed');
   };
 
   const handlePhotoSelect = async (file: File) => {

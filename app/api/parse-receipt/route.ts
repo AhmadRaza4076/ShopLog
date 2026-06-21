@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseReceiptImage } from '@/lib/claude';
 import { DEMO_SHOP_ID, ensureDemoShop, getAllTransactions, saveParsedTransaction } from '@/lib/db';
-import { stockWarningForParsed } from '@/lib/computed';
+import { stockWarningForParsed, parsedForResponse } from '@/lib/computed';
 import { apiErrorResponse } from '@/lib/api-errors';
 import { assertBase64UploadSize } from '@/lib/upload-limits';
 
@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
     const stock_warning = stockWarningForParsed(existing, parsed);
     const transaction = await saveParsedTransaction(DEMO_SHOP_ID, parsed, 'photo', rawInput);
 
-    return NextResponse.json({ parsed, transaction, stock_warning });
+    return NextResponse.json({
+      parsed: parsedForResponse(parsed, transaction),
+      transaction,
+      stock_warning,
+    });
   } catch (error) {
     return apiErrorResponse(error, 'Could not read that receipt.');
   }
