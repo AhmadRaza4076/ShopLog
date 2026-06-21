@@ -1,4 +1,4 @@
-import { computeInventoryMerged } from './item-names';
+import { canonicalItemName, collectKnownItemNames, computeInventoryMerged } from './item-names';
 import type { InventoryRow, ParsedTransaction, SaleRow, ShopItem, Transaction, TransactionType } from './types';
 
 export const STOCK_ADJUSTMENT_MARKER = 'Stock adjustment';
@@ -44,6 +44,86 @@ export function normalizeParsedTransaction(parsed: ParsedTransaction): ParsedTra
     ...parsed,
     is_credit: normalizeIsCredit(parsed.type, parsed.is_credit),
   };
+}
+
+function normItemName(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+function unitPriceFromInventoryRow(
+  type: TransactionType,
+  row: InventoryRow
+): number | null {
+  if (type === 'purchase') return row.buy_price;
+  return row.sell_price ?? row.buy_price;
+}
+
+function unitPriceFromCatalog(type: TransactionType, item: ShopItem): number | null {
+  const buy = item.buy_price != null ? Number(item.buy_price) : null;
+  const sell = item.sell_price != null ? Number(item.sell_price) : null;
+  if (type === 'purchase') return buy;
+  return sell ?? buy;
+}
+
+/** Fill missing totals from qty × catalog/history price before validation. */
+export function enrichParsedTransactionAmounts(
+  parsed: ParsedTransaction,
+  ctx: {
+    catalog?: ShopItem[];
+    transactions?: Transaction[];
+    knownNames?: string[];
+  } = {}
+): ParsedTransaction {
+  const catalog = ctx.catalog ?? [];
+  const transactions = ctx.transactions ?? [];
+  const knownNames =
+    ctx.knownNames && ctx.knownNames.length > 0
+      ? ctx.knownNames
+      : collectKnownItemNames(transactions);
+
+  if (parsed.type === 'payment') return parsed;
+
+  const total = Number(parsed.total_amount);
+  const qty = parsed.quantity != null ? Number(parsed.quantity) : null;
+  let unit = parsed.unit_price != null ? Number(parsed.unit_price) : null;
+
+  if (total > 0 && qty != null && qty > 0 && (unit == null || unit <= 0)) {
+    const perUnit = total / qty;
+    if (Number.isFinite(perUnit) && perUnit > 0) {
+      return { ...parsed, unit_price: perUnit };
+    }
+  }
+
+  if (total > 0) return parsed;
+
+  const canonical = parsed.item_name?.trim()
+    ? canonicalItemName(parsed.item_name, knownNames)
+    : null;
+
+  if ((unit == null || unit <= 0) && canonical) {
+    const catalogItem = catalog.find((c) => normItemName(c.item_name) === normItemName(canonical));
+    if (catalogItem) {
+      unit = unitPriceFromCatalog(parsed.type, catalogItem);
+    }
+    if ((unit == null || unit <= 0) && transactions.length > 0) {
+      const row = computeInventoryMerged(transactions, catalog).find(
+        (r) => normItemName(r.item_name) === normItemName(canonical)
+      );
+      if (row) unit = unitPriceFromInventoryRow(parsed.type, row);
+    }
+  }
+
+  if (qty != null && qty > 0 && unit != null && unit > 0) {
+    return {
+      ...parsed,
+      item_name: canonical ?? parsed.item_name,
+      quantity: qty,
+      unit_price: unit,
+      total_amount: qty * unit,
+    };
+  }
+
+  return parsed;
 }
 
 /** Default shop timezone offset in minutes (PKT = UTC+5). Override via SHOP_TZ_OFFSET_MINUTES. */

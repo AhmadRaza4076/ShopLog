@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   computeSalesGrouped,
   customerBalanceDelta,
+  enrichParsedTransactionAmounts,
   isRealSale,
   isStockAdjustment,
   STOCK_ADJUSTMENT_MARKER,
 } from './computed';
-import type { Transaction } from './types';
+import type { ParsedTransaction, ShopItem, Transaction } from './types';
 
 function txn(partial: Partial<Transaction> & Pick<Transaction, 'type' | 'total_amount'>): Transaction {
   return {
@@ -59,5 +60,52 @@ describe('computeSalesGrouped', () => {
     expect(sales).toHaveLength(1);
     expect(sales[0].total).toBe(1000);
     expect(isRealSale(txn({ type: 'sale', total_amount: 0, sale_notes: STOCK_ADJUSTMENT_MARKER }))).toBe(false);
+  });
+});
+
+describe('enrichParsedTransactionAmounts', () => {
+  const cementCatalog: ShopItem[] = [
+    {
+      id: '1',
+      shop_id: 'shop',
+      item_name: 'Cement (bag)',
+      buy_price: 950,
+      sell_price: 1100,
+      low_stock_at: 5,
+      updated_at: new Date().toISOString(),
+    },
+  ];
+
+  it('infers total from quantity and catalog sell price for alias item names', () => {
+    const parsed: ParsedTransaction = {
+      type: 'sale',
+      item_name: 'cement',
+      quantity: 2,
+      unit_price: null,
+      total_amount: 0,
+      customer_name: null,
+      is_credit: false,
+      confidence: 'medium',
+    };
+    const enriched = enrichParsedTransactionAmounts(parsed, { catalog: cementCatalog });
+    expect(enriched.item_name).toBe('Cement (bag)');
+    expect(enriched.unit_price).toBe(1100);
+    expect(enriched.total_amount).toBe(2200);
+  });
+
+  it('derives unit_price when total and quantity are known', () => {
+    const parsed: ParsedTransaction = {
+      type: 'sale',
+      item_name: 'Cement (bag)',
+      quantity: 2,
+      unit_price: null,
+      total_amount: 2200,
+      customer_name: null,
+      is_credit: false,
+      confidence: 'high',
+    };
+    const enriched = enrichParsedTransactionAmounts(parsed, { catalog: cementCatalog });
+    expect(enriched.unit_price).toBe(1100);
+    expect(enriched.total_amount).toBe(2200);
   });
 });

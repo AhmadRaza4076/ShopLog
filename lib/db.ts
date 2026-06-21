@@ -16,7 +16,7 @@ import {
   collectKnownItemNames,
   itemNameClusters,
 } from './item-names';
-import { computeSalesGrouped, computeCustomerBalances, normalizeParsedTransaction, STOCK_ADJUSTMENT_MARKER } from './computed';
+import { computeSalesGrouped, computeCustomerBalances, enrichParsedTransactionAmounts, normalizeParsedTransaction, STOCK_ADJUSTMENT_MARKER } from './computed';
 import { findCustomers } from './voice-lookup';
 import { assertValidParsedTransaction } from './validate-transaction';
 
@@ -62,7 +62,23 @@ export async function ensureDemoShop() {
     values (${DEMO_SHOP_ID}, ${DEMO_SHOP_NAME}, ${DEMO_OWNER_NAME})
     on conflict (id) do nothing
   `;
+  await ensureAliasCatalogItems(DEMO_SHOP_ID);
   demoShopReady = true;
+}
+
+const ALIAS_CATALOG_DEFAULTS: ShopItemInput[] = [
+  { item_name: 'Cement (bag)', buy_price: 950, sell_price: 1100, low_stock_at: 5 },
+  { item_name: 'Rice (50kg bag)', buy_price: 5200, sell_price: 5800, low_stock_at: 5 },
+];
+
+/** Demo alias targets (cement, rice) need catalog prices for qty-only voice entries. */
+export async function ensureAliasCatalogItems(shopId: string): Promise<void> {
+  for (const input of ALIAS_CATALOG_DEFAULTS) {
+    const existing = await getShopItemByName(shopId, input.item_name);
+    if (!existing) {
+      await createShopItem(shopId, input);
+    }
+  }
 }
 
 export async function getShop(shopId: string): Promise<{ id: string; name: string; owner_name: string } | null> {
@@ -253,7 +269,34 @@ export async function saveParsedTransaction(
   options?: SaveTransactionOptions
 ): Promise<Transaction> {
   const db = sql();
-  const normalized = assertValidParsedTransaction(normalizeParsedTransaction(parsed));
+
+  let knownNames = options?.knownNames;
+  const existing = knownNames ? null : await getAllTransactions(shopId);
+  if (!knownNames) {
+    knownNames = collectKnownItemNames(existing ?? []);
+  }
+  const catalog = await getShopItems(shopId);
+  const enriched = enrichParsedTransactionAmounts(parsed, {
+    catalog,
+    transactions: existing ?? undefined,
+    knownNames,
+  });
+
+  let normalized: ParsedTransaction;
+  try {
+    normalized = assertValidParsedTransaction(normalizeParsedTransaction(enriched));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
+    if (
+      msg.includes('total_amount') &&
+      (parsed.type === 'sale' || parsed.type === 'purchase' || parsed.type === 'credit_given')
+    ) {
+      throw new Error(
+        'Could not determine a price for this entry. Say the total or unit price (e.g. "2 cement bags at 1100 each"), or add the product to inventory with a sell price first.'
+      );
+    }
+    throw err;
+  }
 
   let customerId: string | null = null;
   let customerName: string | null = null;
@@ -261,12 +304,6 @@ export async function saveParsedTransaction(
     const customer = await getOrCreateCustomer(shopId, normalized.customer_name);
     customerId = customer.id;
     customerName = customer.name;
-  }
-
-  let knownNames = options?.knownNames;
-  if (!knownNames) {
-    const existing = await getAllTransactions(shopId);
-    knownNames = collectKnownItemNames(existing);
   }
 
   let itemName = normalized.item_name;

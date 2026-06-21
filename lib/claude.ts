@@ -31,10 +31,11 @@ Rules:
 - is_credit is true whenever money is owed and not yet paid (e.g. "500 owed", "udhaar", "khaata pe", "baad mein de dena").
 - The input may mix English, Urdu, and Roman-Urdu (e.g. "udhaar", "bik gaya", "diya"). Understand all of these.
 - If a number isn't stated explicitly, infer it only if unambiguous; otherwise set it to null and lower confidence.
+- When quantity is known but price is not stated, look up sell_price (sales/credit) or buy_price (purchases) from known inventory and set unit_price and total_amount = quantity × unit_price.
 - Never invent a customer name. If none is mentioned, set customer_name to null.
 - Match customer names to the shop's known customer list when clearly the same person.
 - Use exact item names from the shop's known inventory list when possible.
-- total_amount is required and must be your best numeric estimate even if confidence is "low".`;
+- total_amount is required. Use quantity × catalog unit price when price is not spoken; otherwise your best numeric estimate with confidence "low".`;
 
 const VOICE_TOOL_GUIDANCE = `
 Tool selection rules (pick exactly ONE tool):
